@@ -5,18 +5,21 @@
       #gutter
       class="as-split-gutter"
       role="separator"
-      [dir]="dir()"
+      tabindex="0"
       [attr.aria-label]="gutterAriaLabel()"
       [attr.aria-orientation]="direction()"
-      [attr.aria-valuemin]="area.minSize()"
-      [attr.aria-valuemax]="area.maxSize()"
-      [attr.aria-valuenow]="area._normalizedSize() === '*' ? undefined : area._normalizedSize()"
+      [attr.aria-valuemin]="getAriaValue(area.minSize())"
+      [attr.aria-valuemax]="getAriaValue(area.maxSize())"
+      [attr.aria-valuenow]="getAriaValue(area._normalizedSize())"
       [attr.aria-valuetext]="getAriaAreaSizeText(area)"
       [ngStyle]="getGutterGridStyle($index + 1)"
+      [class.as-dragged]="draggedGutterIndex() === $index"
       (click)="gutterClicked($event, $index)"
       (dblclick)="gutterDoubleClicked($index)"
       (mousedown)="gutterMouseDown($event, $index, $index, $index + 1)"
       (touchstart)="gutterMouseDown($event, $index, $index, $index + 1)"
-    ></div>
+    >
+      <div class="as-split-gutter-icon"></div>
+    </div>
   }
 }

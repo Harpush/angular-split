@@ -19,25 +19,16 @@ import { AComponent } from '../../ui/components/AComponent'
     {{ testChangeDetectorRun() }}
     <div class="container">
       <sp-example-title [type]="exampleEnum.SIMPLE"></sp-example-title>
-      <div class="split-example">
-        <button (click)="shown = !shown">TOGGLE</button>
-        <as-new-split unit="percent" dir="rtl" gutterClickDeltaPx="50" gutterDblClickDuration="500">
-          <as-new-split-area *ngIf="shown" [size]="30"></as-new-split-area>
-          <as-new-split-area [size]="50"></as-new-split-area>
-          <as-new-split-area [size]="10"></as-new-split-area>
-          <as-new-split-area [size]="10"></as-new-split-area>
-        </as-new-split>
-      </div>
       <h5>Percent mode (No wildcards):</h5>
       <div class="split-example ex-percent">
-        <as-split
+        <as-new-split
           unit="percent"
           [direction]="direction"
           gutterAriaLabel="adjustable divider between two views"
           (dragEnd)="dragEndPercentWithoutWildcards($event)"
           #split="asSplit"
         >
-          <as-split-area size="30" #area1="asSplitArea">
+          <as-new-split-area size="30" #area1="asSplitArea">
             <h5>Initial size: <b>30%</b></h5>
             <h5>
               Current size: <b>{{ sizes.percentWithoutWildcards.area1 }}%</b>
@@ -47,8 +38,8 @@ import { AComponent } from '../../ui/components/AComponent'
               ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in
               voluptate velit esse cillum dolore eu fugiat nulla pariatur.
             </p>
-          </as-split-area>
-          <as-split-area size="70" #area2="asSplitArea">
+          </as-new-split-area>
+          <as-new-split-area size="70" #area2="asSplitArea">
             <h5>Initial size: <b>70%</b></h5>
             <h5>
               Current size: <b>{{ sizes.percentWithoutWildcards.area2 }}%</b>
@@ -63,18 +54,18 @@ import { AComponent } from '../../ui/components/AComponent'
               autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel
               illum qui dolorem eum fugiat quo voluptas nulla pariatur?
             </p>
-          </as-split-area>
-        </as-split>
+          </as-new-split-area>
+        </as-new-split>
       </div>
       <h5>Percent mode (With wildcards):</h5>
       <div class="split-example ex-percent-wc">
-        <as-split
+        <as-new-split
           unit="percent"
           [direction]="direction"
           gutterAriaLabel="adjustable divider between two views"
           (dragEnd)="dragEndPercentWithWildcards($event)"
         >
-          <as-split-area size="*">
+          <as-new-split-area size="*">
             <h5>Initial size: <b>*</b></h5>
             <h5>
               Current size: <b>{{ sizes.percentWithWildcards.area1 }}</b>
@@ -84,8 +75,8 @@ import { AComponent } from '../../ui/components/AComponent'
               ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in
               voluptate velit esse cillum dolore eu fugiat nulla pariatur.
             </p>
-          </as-split-area>
-          <as-split-area size="20">
+          </as-new-split-area>
+          <as-new-split-area size="20">
             <h5>Initial size: <b>20%</b></h5>
             <h5>
               Current size: <b>{{ sizes.percentWithWildcards.area2 }}%</b>
@@ -100,8 +91,8 @@ import { AComponent } from '../../ui/components/AComponent'
               autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel
               illum qui dolorem eum fugiat quo voluptas nulla pariatur?
             </p>
-          </as-split-area>
-          <as-split-area size="10">
+          </as-new-split-area>
+          <as-new-split-area size="10">
             <h5>Initial size: <b>10%</b></h5>
             <h5>
               Current size: <b>{{ sizes.percentWithWildcards.area3 }}%</b>
@@ -116,13 +107,13 @@ import { AComponent } from '../../ui/components/AComponent'
               autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel
               illum qui dolorem eum fugiat quo voluptas nulla pariatur?
             </p>
-          </as-split-area>
-        </as-split>
+          </as-new-split-area>
+        </as-new-split>
       </div>
       <h5>Pixel mode:</h5>
       <div class="split-example ex-pixel">
-        <as-split unit="pixel" [direction]="direction" (dragEnd)="dragEndPixel($event)">
-          <as-split-area size="120">
+        <as-new-split unit="pixel" [direction]="direction" (dragEnd)="dragEndPixel($event)">
+          <as-new-split-area size="120">
             <h5>Initial size: <b>120px</b></h5>
             <h5>
               Current size: <b>{{ sizes.pixel.area1 }}px</b>
@@ -131,8 +122,8 @@ import { AComponent } from '../../ui/components/AComponent'
               Ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in
               voluptate velit esse cillum dolore eu fugiat nulla pariatur.
             </p>
-          </as-split-area>
-          <as-split-area size="*">
+          </as-new-split-area>
+          <as-new-split-area size="*">
             <h5>Initial size: <b>*</b></h5>
             <h5>
               Current size: <b>{{ sizes.pixel.area2 }}</b>
@@ -147,8 +138,8 @@ import { AComponent } from '../../ui/components/AComponent'
               autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel
               illum qui dolorem eum fugiat quo voluptas nulla pariatur?
             </p>
-          </as-split-area>
-          <as-split-area size="160">
+          </as-new-split-area>
+          <as-new-split-area size="160">
             <h5>Initial size: <b>160px</b></h5>
             <h5>
               Current size: <b>{{ sizes.pixel.area3 }}px</b>
@@ -157,8 +148,8 @@ import { AComponent } from '../../ui/components/AComponent'
               Eiusmod tiam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute
               irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
             </p>
-          </as-split-area>
-        </as-split>
+          </as-new-split-area>
+        </as-new-split>
       </div>
       <br />
       <div class="btns">
@@ -174,7 +165,6 @@ export class SimpleSplitComponent extends AComponent {
   @ViewChild('area1') area1: SplitAreaDirective
   @ViewChild('area2') area2: SplitAreaDirective
   @HostBinding('class') class = 'split-example-page'
-  shown = true
 
   direction: ISplitDirection = 'horizontal'
   sizes = {

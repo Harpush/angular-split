@@ -65,3 +65,10 @@ export function toRecord<TItem, TKey extends string, TValue>(
     {} as Record<TKey, TValue>,
   )
 }
+
+export function createClassesString(classesRecord: Record<string, boolean>) {
+  return Object.entries(classesRecord)
+    .filter(([, value]) => value)
+    .map(([key]) => key)
+    .join(' ')
+}

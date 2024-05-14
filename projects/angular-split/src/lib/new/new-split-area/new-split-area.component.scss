@@ -1,7 +1,14 @@
 :host {
-  grid-row: 1;
-  background-color: yellow;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.as-horizontal > :host {
   height: 100%;
+}
+
+.as-vertical > :host {
+  width: 100%;
 }
 
 .as-iframe-fix {

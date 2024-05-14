@@ -13,6 +13,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { NewSplitAreaComponent } from '../new-split-area/new-split-area.component'
 import { Subject, map, pairwise, skipWhile, startWith, switchMap, take, takeUntil, tap } from 'rxjs'
 import {
+  createClassesString,
   fromMouseMoveEvent,
   fromMouseUpEvent,
   getMousePointFromEvent,
@@ -22,7 +23,7 @@ import {
   toRecord,
 } from '../utils'
 import { NgStyle } from '@angular/common'
-import { GutterInteractionEvent } from '../models'
+import { AreaSize, GutterInteractionEvent } from '../models'
 
 interface MouseDownContext {
   mouseDownEvent: MouseEvent | TouchEvent
@@ -48,10 +49,12 @@ interface DragStartContext {
   selector: 'as-new-split',
   standalone: true,
   imports: [NgStyle],
+  exportAs: 'asSplit',
   templateUrl: './new-split.component.html',
   styleUrl: './new-split.component.scss',
 })
 export class NewSplitComponent {
+  // TODO: Global config
   private readonly gutterMouseDown$ = new Subject<MouseDownContext>()
 
   readonly areas = contentChildren(NewSplitAreaComponent)
@@ -99,10 +102,22 @@ export class NewSplitComponent {
 
     return this.direction() === 'horizontal' ? `1fr / ${columns.join(' ')}` : `${columns.join(' ')} / 1fr`
   })
-  readonly _isDragging = signal(false)
+  private readonly hostClasses = computed(() =>
+    createClassesString({
+      [`as-${this.direction()}`]: true,
+      [`as-${this.unit()}`]: true,
+      ['as-disabled']: this.disabled(),
+      ['as-dragging']: this._isDragging(),
+    }),
+  )
+  protected readonly draggedGutterIndex = signal<number>(undefined)
+  readonly _isDragging = computed(() => this.draggedGutterIndex() !== undefined)
 
-  @HostBinding('style.grid-template') get gridTemplateColumnsHostStyle() {
+  @HostBinding('style.grid-template') protected get hostGridTemplateColumnsStyleBinding() {
     return this.gridTemplateColumnsStyle()
+  }
+  @HostBinding('class') protected get hostClassesBinding() {
+    return this.hostClasses()
   }
 
   // TODO: (?) dragProgress$
@@ -122,7 +137,7 @@ export class NewSplitComponent {
             skipWhile(([, currMoveEvent]) => this.eventsEqualWithDelta(mouseDownContext.mouseDownEvent, currMoveEvent)),
             take(1),
             takeUntil(fromMouseUpEvent(document).pipe(take(1))),
-            tap(() => this._isDragging.set(true)),
+            tap(() => this.draggedGutterIndex.set(mouseDownContext.gutterIndex)),
             tap(() => this.dragStart.emit(this.createDragInteractionEvent(mouseDownContext.gutterIndex))),
             map(([prevMoveEvent]) => this.createDragStartContext(prevMoveEvent, mouseDownContext)),
             switchMap((dragStartContext) =>
@@ -135,7 +150,7 @@ export class NewSplitComponent {
                       // Needed as there is no better way to cancel the click event
                       // that will come after the mouseup event.
                       setTimeout(() => {
-                        this._isDragging.set(false)
+                        this.draggedGutterIndex.set(undefined)
                         this.dragEnd.emit(this.createDragInteractionEvent(mouseDownContext.gutterIndex))
                       })
                     }
@@ -150,7 +165,7 @@ export class NewSplitComponent {
       .subscribe()
   }
 
-  gutterClicked(e: MouseEvent, gutterIndex: number) {
+  protected gutterClicked(e: MouseEvent, gutterIndex: number) {
     // Double clicked so ignore
     if (e.detail > 1) {
       return
@@ -164,21 +179,22 @@ export class NewSplitComponent {
     this.gutterClick.emit(this.createDragInteractionEvent(gutterIndex))
   }
 
-  gutterDoubleClicked(gutterIndex: number) {
+  protected gutterDoubleClicked(gutterIndex: number) {
     this.gutterDblClick.emit(this.createDragInteractionEvent(gutterIndex))
   }
 
-  gutterMouseDown(e: MouseEvent | TouchEvent, gutterIndex: number, areaBeforeIndex: number, areaAfterIndex: number) {
+  protected gutterMouseDown(
+    e: MouseEvent | TouchEvent,
+    gutterIndex: number,
+    areaBeforeIndex: number,
+    areaAfterIndex: number,
+  ) {
     e.preventDefault()
     e.stopPropagation()
 
     if (this.disabled()) {
       return
     }
-
-    // TODO: locking needed after iframe fix?
-    // lock
-    // unlock
 
     this.gutterMouseDown$.next({
       mouseDownEvent: e,
@@ -188,12 +204,16 @@ export class NewSplitComponent {
     })
   }
 
+  // TODO: keyboard drag
+
   protected getGutterGridStyle(nextAreaIndex: number) {
     const gutterNum = nextAreaIndex * 2
     const style = `${gutterNum} / ${gutterNum}`
-    const styleName = this.direction() === 'horizontal' ? 'grid-column' : 'grid-row'
 
-    return { [styleName]: style }
+    return {
+      ['grid-column']: this.direction() === 'horizontal' ? style : '1',
+      ['grid-row']: this.direction() === 'vertical' ? style : '1',
+    }
   }
 
   protected getAriaAreaSizeText(area: NewSplitAreaComponent): string {
@@ -204,6 +224,10 @@ export class NewSplitComponent {
     }
 
     return `${size.toFixed(0)} ${this.unit()}`
+  }
+
+  protected getAriaValue(size: AreaSize) {
+    return size === '*' ? undefined : size
   }
 
   private createDragInteractionEvent(gutterIndex: number): GutterInteractionEvent {
