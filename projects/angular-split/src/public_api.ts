@@ -10,3 +10,6 @@ export { SplitGutterExcludeFromDragDirective } from './lib/gutter/split-gutter-e
 export { SplitAreaDirective } from './lib/directive/split-area.directive'
 export { ANGULAR_SPLIT_DEFAULT_OPTIONS } from './lib/angular-split-config.token'
 export * from './lib/interface'
+
+export { NewSplitComponent } from './lib/new/new-split/new-split.component'
+export { NewSplitAreaComponent } from './lib/new/new-split-area/new-split-area.component'

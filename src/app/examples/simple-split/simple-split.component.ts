@@ -19,6 +19,15 @@ import { AComponent } from '../../ui/components/AComponent'
     {{ testChangeDetectorRun() }}
     <div class="container">
       <sp-example-title [type]="exampleEnum.SIMPLE"></sp-example-title>
+      <div class="split-example">
+        <button (click)="shown = !shown">TOGGLE</button>
+        <as-new-split unit="percent" dir="rtl" gutterClickDeltaPx="50" gutterDblClickDuration="500">
+          <as-new-split-area *ngIf="shown" [size]="30"></as-new-split-area>
+          <as-new-split-area [size]="50"></as-new-split-area>
+          <as-new-split-area [size]="10"></as-new-split-area>
+          <as-new-split-area [size]="10"></as-new-split-area>
+        </as-new-split>
+      </div>
       <h5>Percent mode (No wildcards):</h5>
       <div class="split-example ex-percent">
         <as-split
@@ -164,7 +173,8 @@ export class SimpleSplitComponent extends AComponent {
   @ViewChild('split') split: SplitComponent
   @ViewChild('area1') area1: SplitAreaDirective
   @ViewChild('area2') area2: SplitAreaDirective
-  @HostBinding('class') class = 'split-example-page';
+  @HostBinding('class') class = 'split-example-page'
+  shown = true
 
   direction: ISplitDirection = 'horizontal'
   sizes = {

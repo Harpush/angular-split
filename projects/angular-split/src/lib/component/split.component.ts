@@ -766,6 +766,8 @@ export class SplitComponent implements AfterViewInit, OnDestroy {
       offset = -offset
     }
 
+    console.log(offset)
+
     const steppedOffset = Math.round(offset / this.gutterStep) * this.gutterStep
 
     if (steppedOffset === this.snapshot.lastSteppedOffset) {
@@ -788,6 +790,8 @@ export class SplitComponent implements AfterViewInit, OnDestroy {
       steppedOffset,
       this.snapshot.allAreasSizePixel,
     )
+
+    console.log(areasBefore, areasAfter)
 
     // Each gutter side areas can't absorb all offset
     if (areasBefore.remain !== 0 && areasAfter.remain !== 0) {
@@ -850,6 +854,8 @@ export class SplitComponent implements AfterViewInit, OnDestroy {
     }
 
     // Now we know areas could absorb steppedOffset, time to really update sizes
+
+    // console.log(areasBefore, areasAfter);
 
     areasBefore.list.forEach((item) => updateAreaSize(this.unit, item))
     areasAfter.list.forEach((item) => updateAreaSize(this.unit, item))

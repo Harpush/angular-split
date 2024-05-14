@@ -1,0 +1,11 @@
+:host {
+  display: grid;
+  overflow: auto;
+  height: 100%;
+}
+
+.as-split-gutter {
+  grid-row: 1;
+  background-color: grey;
+  height: 100%;
+}

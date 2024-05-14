@@ -36,14 +36,14 @@ import { AComponent } from '../../ui/components/AComponent'
         text-align: center;
       }
 
-      as-split-area {
+      as-new-split-area {
         background: lightblue;
         transition: background 0.2s;
         position: relative;
         overflow: hidden !important;
       }
 
-      as-split-area > p {
+      as-new-split-area > p {
         position: absolute;
         font-size: 12px;
         font-weight: bold;
@@ -51,22 +51,22 @@ import { AComponent } from '../../ui/components/AComponent'
         line-height: 12px;
       }
 
-      as-split-area.as-min {
+      as-new-split-area.as-min {
         background: green;
       }
-      as-split-area.as-min .txt-min {
+      as-new-split-area.as-min .txt-min {
         opacity: 1;
       }
-      as-split-area.as-max {
+      as-new-split-area.as-max {
         background: red;
       }
-      as-split-area.as-max .txt-max {
+      as-new-split-area.as-max .txt-max {
         opacity: 1;
       }
-      as-split-area.as-min.as-max {
+      as-new-split-area.as-min.as-max {
         background: #ff77e7;
       }
-      as-split-area.as-min.as-max .txt-minmax {
+      as-new-split-area.as-min.as-max .txt-minmax {
         opacity: 1;
       }
     `,
@@ -77,23 +77,23 @@ import { AComponent } from '../../ui/components/AComponent'
       <sp-example-title [type]="exampleEnum.MINMAX"></sp-example-title>
       <h5>Percent mode:</h5>
       <div class="split-example ex-percent">
-        <as-split unit="percent" [restrictMove]="restrictMove" gutterSize="30" (dragEnd)="log($event)">
-          <as-split-area size="30" minSize="20" maxSize="30">
+        <as-new-split unit="percent" [restrictMove]="restrictMove" gutterSize="30" (dragEnd)="log($event)">
+          <as-new-split-area size="30" minSize="20" maxSize="30">
             <p>size="30"<br />minSize="20"<br />maxSize="30"</p>
             <div class="txt-min"><p>MIN</p></div>
             <div class="txt-max"><p>MAX</p></div>
-          </as-split-area>
-          <as-split-area size="40" minSize="30" maxSize="50">
+          </as-new-split-area>
+          <as-new-split-area size="40" minSize="30" maxSize="50">
             <p>size="40"<br />minSize="30"<br />maxSize="50"</p>
             <div class="txt-min"><p>MIN</p></div>
             <div class="txt-max"><p>MAX</p></div>
-          </as-split-area>
-          <as-split-area size="30" minSize="20" maxSize="50">
+          </as-new-split-area>
+          <as-new-split-area size="30" minSize="20" maxSize="50">
             <p>size="30"<br />minSize="20"<br />maxSize="50"</p>
             <div class="txt-min"><p>MIN</p></div>
             <div class="txt-max"><p>MAX</p></div>
-          </as-split-area>
-        </as-split>
+          </as-new-split-area>
+        </as-new-split>
       </div>
       <h5>Pixel mode:</h5>
       <div class="split-example ex-pixel">
@@ -131,7 +131,7 @@ import { AComponent } from '../../ui/components/AComponent'
   `,
 })
 export class MinMaxSplitComponent extends AComponent {
-  @HostBinding('class') class = 'split-example-page';
+  @HostBinding('class') class = 'split-example-page'
 
   restrictMove = false
 

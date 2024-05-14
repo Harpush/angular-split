@@ -1,4 +1,12 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostBinding, OnDestroy, ViewChild } from '@angular/core'
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  HostBinding,
+  OnDestroy,
+  ViewChild,
+} from '@angular/core'
 import { IAreaSize, IOutputAreaSizes, IOutputData, SplitComponent } from 'angular-split'
 import { Subscription } from 'rxjs'
 import { AComponent } from '../../ui/components/AComponent'
@@ -52,8 +60,9 @@ import { formatDate } from '../../utils/format-date'
         <as-split
           #mySplit
           [disabled]="isDisabled"
-          gutterSize="10"
+          gutterSize="50"
           [gutterDblClickDuration]="dblClickTime"
+          [gutterClickDeltaPx]="100"
           direction="horizontal"
           [useTransition]="useTransition"
           (dragStart)="log('dragStart', $event)"
@@ -109,7 +118,7 @@ import { formatDate } from '../../utils/format-date'
   `,
 })
 export class GutterClickRollUnrollComponent extends AComponent implements AfterViewInit, OnDestroy {
-  @HostBinding('class') class = 'split-example-page';
+  @HostBinding('class') class = 'split-example-page'
 
   isDisabled = true
   useTransition = true
