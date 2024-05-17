@@ -24,6 +24,7 @@ import {
 } from '../utils'
 import { NgStyle } from '@angular/common'
 import { AreaSize, GutterInteractionEvent } from '../models'
+import { SplitCustomClickBehaviorDirective } from '../split-custom-click-behavior.directive'
 
 interface MouseDownContext {
   mouseDownEvent: MouseEvent | TouchEvent
@@ -48,13 +49,14 @@ interface DragStartContext {
 @Component({
   selector: 'as-new-split',
   standalone: true,
-  imports: [NgStyle],
+  imports: [NgStyle, SplitCustomClickBehaviorDirective],
   exportAs: 'asSplit',
   templateUrl: './new-split.component.html',
   styleUrl: './new-split.component.scss',
 })
 export class NewSplitComponent {
   // TODO: Global config
+  // TODO: Change detection decisions
   private readonly gutterMouseDown$ = new Subject<MouseDownContext>()
 
   readonly areas = contentChildren(NewSplitAreaComponent)
@@ -67,10 +69,10 @@ export class NewSplitComponent {
   readonly unit = input<'pixel' | 'percent'>('percent')
   readonly gutterAriaLabel = input<string>()
   readonly restrictMove = input(false, { transform: booleanAttribute })
-  readonly gutterDblClickDuration = input(0, { transform: numberAttribute })
   // TODO: useTransition
   readonly gutterClick = output<GutterInteractionEvent>()
   readonly gutterDblClick = output<GutterInteractionEvent>()
+  readonly gutterDblClickDuration = input(0)
   readonly dragStart = output<GutterInteractionEvent>()
   readonly dragEnd = output<GutterInteractionEvent>()
 
@@ -123,6 +125,7 @@ export class NewSplitComponent {
   // TODO: (?) dragProgress$
 
   constructor() {
+    // TODO: Validate * using content children (percent to 100% too)
     this.gutterMouseDown$
       .pipe(
         switchMap((mouseDownContext) =>
@@ -136,14 +139,14 @@ export class NewSplitComponent {
             pairwise(),
             skipWhile(([, currMoveEvent]) => this.eventsEqualWithDelta(mouseDownContext.mouseDownEvent, currMoveEvent)),
             take(1),
-            takeUntil(fromMouseUpEvent(document).pipe(take(1))),
+            takeUntil(fromMouseUpEvent(document, true).pipe(take(1))),
             tap(() => this.draggedGutterIndex.set(mouseDownContext.gutterIndex)),
             tap(() => this.dragStart.emit(this.createDragInteractionEvent(mouseDownContext.gutterIndex))),
             map(([prevMoveEvent]) => this.createDragStartContext(prevMoveEvent, mouseDownContext)),
             switchMap((dragStartContext) =>
               fromMouseMoveEvent(document).pipe(
                 tap((moveEvent) => this.dragMove(moveEvent, dragStartContext)),
-                takeUntil(fromMouseUpEvent(document).pipe(take(1))),
+                takeUntil(fromMouseUpEvent(document, true).pipe(take(1))),
                 tap({
                   complete: () => {
                     if (this._isDragging()) {
@@ -165,12 +168,7 @@ export class NewSplitComponent {
       .subscribe()
   }
 
-  protected gutterClicked(e: MouseEvent, gutterIndex: number) {
-    // Double clicked so ignore
-    if (e.detail > 1) {
-      return
-    }
-
+  protected gutterClicked(gutterIndex: number) {
     // Just ended dragging so ignore
     if (this._isDragging()) {
       return
@@ -180,6 +178,11 @@ export class NewSplitComponent {
   }
 
   protected gutterDoubleClicked(gutterIndex: number) {
+    // Just ended dragging so ignore
+    if (this._isDragging()) {
+      return
+    }
+
     this.gutterDblClick.emit(this.createDragInteractionEvent(gutterIndex))
   }
 
@@ -189,6 +192,11 @@ export class NewSplitComponent {
     areaBeforeIndex: number,
     areaAfterIndex: number,
   ) {
+    // Only left clicks
+    if (e instanceof MouseEvent && e.button !== 0) {
+      return
+    }
+
     e.preventDefault()
     e.stopPropagation()
 
@@ -288,6 +296,9 @@ export class NewSplitComponent {
   }
 
   private dragMove(moveEvent: MouseEvent | TouchEvent, dragStartContext: DragStartContext) {
+    moveEvent.preventDefault()
+    moveEvent.stopPropagation()
+
     const startPoint = getMousePointFromEvent(dragStartContext.startEvent)
     const endPoint = getMousePointFromEvent(moveEvent)
     const preDirOffset = this.direction() === 'horizontal' ? endPoint.x - startPoint.x : endPoint.y - startPoint.y

@@ -14,8 +14,10 @@
       [attr.aria-valuetext]="getAriaAreaSizeText(area)"
       [ngStyle]="getGutterGridStyle($index + 1)"
       [class.as-dragged]="draggedGutterIndex() === $index"
-      (click)="gutterClicked($event, $index)"
-      (dblclick)="gutterDoubleClicked($index)"
+      asSplitCustomClickBehavior
+      [asSplitCustomMultiClickThreshold]="gutterDblClickDuration()"
+      (asSplitCustomClick)="gutterClicked($index)"
+      (asSplitCustomDblClick)="gutterDoubleClicked($index)"
       (mousedown)="gutterMouseDown($event, $index, $index, $index + 1)"
       (touchstart)="gutterMouseDown($event, $index, $index, $index + 1)"
     >

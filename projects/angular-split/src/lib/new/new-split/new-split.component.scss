@@ -1,6 +1,6 @@
 :host {
   display: grid;
-  overflow: auto;
+  overflow: hidden;
   height: 100%;
   width: 100%;
 }
@@ -10,6 +10,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: none;
 
   :host(.as-horizontal) > & {
     cursor: col-resize;

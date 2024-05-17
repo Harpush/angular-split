@@ -1,4 +1,4 @@
-import { fromEvent, merge } from 'rxjs'
+import { filter, fromEvent, merge } from 'rxjs'
 
 export interface ClientPoint {
   x: number
@@ -30,6 +30,13 @@ export function getMousePointFromEvent(event: MouseEvent | TouchEvent): ClientPo
 
 export function roundWithPrecision(num: number, precision: number) {
   return Math.round(num * 10 ** precision) / 10 ** precision
+}
+
+export function fromMouseDownEvent(target: HTMLElement | Document) {
+  return merge(
+    fromEvent<MouseEvent>(target, 'mousedown').pipe(filter((e) => e.button === 0)),
+    fromEvent<TouchEvent>(target, 'touchstart'),
+  )
 }
 
 export function fromMouseMoveEvent(target: HTMLElement | Document) {
