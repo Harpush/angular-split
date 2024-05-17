@@ -4,6 +4,7 @@ import {
   booleanAttribute,
   computed,
   contentChildren,
+  inject,
   input,
   numberAttribute,
   output,
@@ -22,7 +23,7 @@ import {
   sumNumArray,
   toRecord,
 } from '../utils'
-import { NgStyle } from '@angular/common'
+import { DOCUMENT, NgStyle } from '@angular/common'
 import { AreaSize, GutterInteractionEvent } from '../models'
 import { SplitCustomClickBehaviorDirective } from '../split-custom-click-behavior.directive'
 
@@ -55,6 +56,8 @@ interface DragStartContext {
   styleUrl: './new-split.component.scss',
 })
 export class NewSplitComponent {
+  private readonly document = inject(DOCUMENT)
+
   // TODO: Global config
   // TODO: Change detection decisions
   private readonly gutterMouseDown$ = new Subject<MouseDownContext>()
@@ -134,19 +137,19 @@ export class NewSplitComponent {
           // we always start the drag if we go out of the gutter (delta based on mouse position is larger than gutter).
           // As moving can start inside the drag and end outside of it we always keep track of the previous event
           // so once the current is out of the delta size we use the previous one as the drag start baseline.
-          fromMouseMoveEvent(document).pipe(
+          fromMouseMoveEvent(this.document).pipe(
             startWith(mouseDownContext.mouseDownEvent),
             pairwise(),
             skipWhile(([, currMoveEvent]) => this.eventsEqualWithDelta(mouseDownContext.mouseDownEvent, currMoveEvent)),
             take(1),
-            takeUntil(fromMouseUpEvent(document, true).pipe(take(1))),
+            takeUntil(fromMouseUpEvent(this.document, true).pipe(take(1))),
             tap(() => this.draggedGutterIndex.set(mouseDownContext.gutterIndex)),
             tap(() => this.dragStart.emit(this.createDragInteractionEvent(mouseDownContext.gutterIndex))),
             map(([prevMoveEvent]) => this.createDragStartContext(prevMoveEvent, mouseDownContext)),
             switchMap((dragStartContext) =>
-              fromMouseMoveEvent(document).pipe(
+              fromMouseMoveEvent(this.document).pipe(
                 tap((moveEvent) => this.dragMove(moveEvent, dragStartContext)),
-                takeUntil(fromMouseUpEvent(document, true).pipe(take(1))),
+                takeUntil(fromMouseUpEvent(this.document, true).pipe(take(1))),
                 tap({
                   complete: () => {
                     if (this._isDragging()) {

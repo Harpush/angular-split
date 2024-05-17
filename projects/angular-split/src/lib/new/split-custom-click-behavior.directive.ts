@@ -21,7 +21,6 @@ export class SplitCustomClickBehaviorDirective {
   readonly dblClick = output({ alias: 'asSplitCustomDblClick' })
 
   constructor() {
-    // TODO: Maybe listen on document and then check all events match the gutter? if any are not don't emit
     fromMouseDownEvent(this.elementRef.nativeElement)
       .pipe(
         // Gather mousedown events intervals to identify whether it is a single double or more click

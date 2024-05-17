@@ -35,7 +35,8 @@ export function roundWithPrecision(num: number, precision: number) {
 export function fromMouseDownEvent(target: HTMLElement | Document) {
   return merge(
     fromEvent<MouseEvent>(target, 'mousedown').pipe(filter((e) => e.button === 0)),
-    fromEvent<TouchEvent>(target, 'touchstart'),
+    // We must prevent default here so we declare it as non passive explicitly
+    fromEvent<TouchEvent>(target, 'touchstart', { passive: false }),
   )
 }
 
