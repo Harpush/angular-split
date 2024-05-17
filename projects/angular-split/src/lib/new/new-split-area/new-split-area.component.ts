@@ -89,7 +89,14 @@ export class NewSplitAreaComponent {
       }
     })
 
-    // TODO: lockSize with * not supported...
+    effect(() => {
+      const size = this._normalizedSize()
+      const lockSize = this.lockSize()
+
+      if (lockSize && size === '*') {
+        throw new Error(`as-split: lockSize isn't supported on * size area`)
+      }
+    })
   }
 
   private normalizeSizeBoundary(sizeBoundarySignal: Signal<AreaSize>, defaultNum: number): number {

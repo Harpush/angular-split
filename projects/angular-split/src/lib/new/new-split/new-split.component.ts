@@ -4,6 +4,7 @@ import {
   booleanAttribute,
   computed,
   contentChildren,
+  effect,
   inject,
   input,
   numberAttribute,
@@ -24,8 +25,9 @@ import {
   toRecord,
 } from '../utils'
 import { DOCUMENT, NgStyle } from '@angular/common'
-import { AreaSize, GutterInteractionEvent } from '../models'
+import { AreaSize, GutterInteractionEvent, Unit } from '../models'
 import { SplitCustomClickBehaviorDirective } from '../split-custom-click-behavior.directive'
+import { validateAreas } from '../validations'
 
 interface MouseDownContext {
   mouseDownEvent: MouseEvent | TouchEvent
@@ -69,7 +71,7 @@ export class NewSplitComponent {
   readonly gutterClickDeltaPx = input(2, { transform: numberAttribute })
   readonly direction = input<'horizontal' | 'vertical'>('horizontal')
   readonly dir = input<'ltr' | 'rtl'>('ltr')
-  readonly unit = input<'pixel' | 'percent'>('percent')
+  readonly unit = input<Unit>('percent')
   readonly gutterAriaLabel = input<string>()
   readonly restrictMove = input(false, { transform: booleanAttribute })
   // TODO: useTransition
@@ -128,7 +130,8 @@ export class NewSplitComponent {
   // TODO: (?) dragProgress$
 
   constructor() {
-    // TODO: Validate * using content children (percent to 100% too)
+    effect(() => validateAreas(this.areas(), this.unit()))
+
     this.gutterMouseDown$
       .pipe(
         switchMap((mouseDownContext) =>
