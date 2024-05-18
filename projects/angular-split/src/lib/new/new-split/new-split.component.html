@@ -10,7 +10,7 @@
       [attr.aria-orientation]="direction()"
       [attr.aria-valuemin]="getAriaValue(area.minSize())"
       [attr.aria-valuemax]="getAriaValue(area.maxSize())"
-      [attr.aria-valuenow]="getAriaValue(area._normalizedSize())"
+      [attr.aria-valuenow]="getAriaValue(area._internalSize())"
       [attr.aria-valuetext]="getAriaAreaSizeText(area)"
       [ngStyle]="getGutterGridStyle($index + 1)"
       [class.as-dragged]="draggedGutterIndex() === $index"

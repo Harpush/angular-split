@@ -1,8 +1,19 @@
-export type AreaSize = number | '*'
+export type SplitAreaSize = number | '*'
 
-export type Unit = 'pixel' | 'percent'
+export type SplitAreaSizeInput = SplitAreaSize | `${number}` | undefined | null
 
-export interface GutterInteractionEvent {
+const internalAreaSizeTransform = (areaSize: SplitAreaSizeInput): SplitAreaSize =>
+  areaSize === undefined || areaSize === null || areaSize === '*' ? '*' : +areaSize
+
+export const areaSizeTransform = (areaSize: SplitAreaSizeInput): SplitAreaSize | 'auto' =>
+  internalAreaSizeTransform(areaSize)
+
+export const boundaryAreaSizeTransform = (areaSize: SplitAreaSizeInput): SplitAreaSize =>
+  internalAreaSizeTransform(areaSize)
+
+export type SplitUnit = 'pixel' | 'percent'
+
+export interface SplitGutterInteractionEvent {
   gutterNum: number
-  sizes: AreaSize[]
+  sizes: SplitAreaSize[]
 }

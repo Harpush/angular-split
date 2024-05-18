@@ -8,16 +8,10 @@ import {
   effect,
   inject,
   input,
-  model,
 } from '@angular/core'
 import { NewSplitComponent } from '../new-split/new-split.component'
-import { AreaSize } from '../models'
-import { createClassesString } from '../utils'
-
-type SplitAreaSize = AreaSize | `${number}` | null | undefined
-
-const areaSizeTransform = (areaSize: SplitAreaSize): AreaSize =>
-  areaSize === null || areaSize === undefined || areaSize === '*' ? '*' : +areaSize
+import { createClassesString, mirrorSignal } from '../utils'
+import { SplitAreaSize, areaSizeTransform, boundaryAreaSizeTransform } from '../models'
 
 @Component({
   selector: 'as-new-split-area',
@@ -30,15 +24,27 @@ export class NewSplitAreaComponent {
   protected readonly split = inject(NewSplitComponent)
   readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
 
-  readonly size = model<SplitAreaSize>('*')
-  readonly minSize = input('*', { transform: areaSizeTransform })
-  readonly maxSize = input('*', { transform: areaSizeTransform })
+  readonly size = input('auto', { transform: areaSizeTransform })
+  readonly minSize = input('*', { transform: boundaryAreaSizeTransform })
+  readonly maxSize = input('*', { transform: boundaryAreaSizeTransform })
   readonly lockSize = input(false, { transform: booleanAttribute })
-  // TODO: visible
+  readonly visible = input(true)
   // TODO: transition
   // TODO: collapse/expand
 
-  readonly _normalizedSize = computed(() => areaSizeTransform(this.size()))
+  // As size is an input and we can change the size without the outside
+  // listening to the change we need an intermediate writeable signal
+  readonly _internalSize = mirrorSignal(
+    computed((): SplitAreaSize => {
+      if (!this.visible()) {
+        return 0
+      }
+
+      const size = this.size()
+      // auto will get fixed by the effect in split component
+      return size === 'auto' ? '*' : size
+    }),
+  )
   readonly _normalizedMinSize = computed(() => this.normalizeSizeBoundary(this.minSize, 0))
   readonly _normalizedMaxSize = computed(() => this.normalizeSizeBoundary(this.maxSize, Infinity))
   private readonly index = computed(() => this.split.areas().findIndex((area) => area === this))
@@ -46,8 +52,9 @@ export class NewSplitAreaComponent {
   private readonly hostClasses = computed(() =>
     createClassesString({
       ['as-split-area']: true,
-      ['as-min']: this._normalizedSize() === this._normalizedMinSize(),
-      ['as-max']: this._normalizedSize() === this._normalizedMaxSize(),
+      ['as-min']: this._internalSize() === this._normalizedMinSize(),
+      ['as-max']: this._internalSize() === this._normalizedMaxSize(),
+      ['as-hidden']: !this.visible(),
     }),
   )
 
@@ -66,44 +73,73 @@ export class NewSplitAreaComponent {
 
   constructor() {
     effect(() => {
-      const size = this._normalizedSize()
+      const size = this._internalSize()
+      const maxSize = this.maxSize()
+      const unit = this.split.unit()
+      const visible = this.visible()
 
-      if (size === '*') {
+      if (!visible) {
         return
       }
 
-      if (size > this._normalizedMaxSize()) {
+      if (unit === 'pixel' && size === '*' && maxSize !== '*') {
+        throw new Error('as-split: maxSize not allowed on * in pixel mode')
+      }
+
+      if (size === '*' || maxSize === '*') {
+        return
+      }
+
+      if (size > maxSize) {
         throw new Error('as-split: size cannot be larger than maxSize')
       }
     })
 
     effect(() => {
-      const size = this._normalizedSize()
+      const size = this._internalSize()
+      const minSize = this.minSize()
+      const unit = this.split.unit()
+      const visible = this.visible()
 
-      if (size === '*') {
+      if (!visible) {
         return
       }
 
-      if (size < this._normalizedMinSize()) {
+      if (unit === 'pixel' && size === '*' && minSize !== '*') {
+        throw new Error('as-split: minSize not allowed on * in pixel mode')
+      }
+
+      if (size === '*' || minSize === '*') {
+        return
+      }
+
+      if (size < minSize) {
         throw new Error('as-split: size cannot be smaller than minSize')
       }
     })
 
     effect(() => {
-      const size = this._normalizedSize()
+      const size = this._internalSize()
       const lockSize = this.lockSize()
+      const visible = this.visible()
+
+      if (!visible) {
+        return
+      }
 
       if (lockSize && size === '*') {
-        throw new Error(`as-split: lockSize isn't supported on * size area`)
+        throw new Error(`as-split: lockSize isn't supported on area with * size or without size`)
       }
     })
   }
 
-  private normalizeSizeBoundary(sizeBoundarySignal: Signal<AreaSize>, defaultNum: number): number {
+  private normalizeSizeBoundary(sizeBoundarySignal: Signal<SplitAreaSize>, defaultNum: number): number {
     if (this.lockSize()) {
-      const size = areaSizeTransform(this.size())
+      const size = this.size()
 
-      return size === '*' ? defaultNum : size
+      // Should never happen and guarded by an effect. But in case after the error someone starts dragging
+      // it might get to an endless loop unless we handle it here.
+      return size === '*' || size === 'auto' ? defaultNum : size
     }
 
     const sizeBoundary = sizeBoundarySignal()

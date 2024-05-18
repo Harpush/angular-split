@@ -10,6 +10,7 @@ import {
   numberAttribute,
   output,
   signal,
+  untracked,
 } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { NewSplitAreaComponent } from '../new-split-area/new-split-area.component'
@@ -25,7 +26,7 @@ import {
   toRecord,
 } from '../utils'
 import { DOCUMENT, NgStyle } from '@angular/common'
-import { AreaSize, GutterInteractionEvent, Unit } from '../models'
+import { SplitGutterInteractionEvent, SplitAreaSize, SplitUnit } from '../models'
 import { SplitCustomClickBehaviorDirective } from '../split-custom-click-behavior.directive'
 import { validateAreas } from '../validations'
 
@@ -71,39 +72,62 @@ export class NewSplitComponent {
   readonly gutterClickDeltaPx = input(2, { transform: numberAttribute })
   readonly direction = input<'horizontal' | 'vertical'>('horizontal')
   readonly dir = input<'ltr' | 'rtl'>('ltr')
-  readonly unit = input<Unit>('percent')
+  readonly unit = input<SplitUnit>('percent')
   readonly gutterAriaLabel = input<string>()
   readonly restrictMove = input(false, { transform: booleanAttribute })
   // TODO: useTransition
-  readonly gutterClick = output<GutterInteractionEvent>()
-  readonly gutterDblClick = output<GutterInteractionEvent>()
+  readonly gutterClick = output<SplitGutterInteractionEvent>()
+  readonly gutterDblClick = output<SplitGutterInteractionEvent>()
   readonly gutterDblClickDuration = input(0)
-  readonly dragStart = output<GutterInteractionEvent>()
-  readonly dragEnd = output<GutterInteractionEvent>()
+  readonly dragStart = output<SplitGutterInteractionEvent>()
+  readonly dragEnd = output<SplitGutterInteractionEvent>()
 
   // TODO: transitionEnd
 
+  readonly visibleAreas = computed(() => this.areas().filter((area) => area.visible()))
   private readonly gridTemplateColumnsStyle = computed(() => {
     const columns: string[] = []
-    const sumNonWildcardSizes = sum(this.areas(), (area) => {
-      const size = area._normalizedSize()
+    const sumNonWildcardSizes = sum(this.visibleAreas(), (area) => {
+      const size = area._internalSize()
       return size === '*' ? 0 : size
     })
+    const visibleAreasCount = this.visibleAreas().length
+
+    let visitedVisibleAreas = 0
 
     this.areas().forEach((area, index, areas) => {
-      const areaSize = area._normalizedSize()
-      const unit = this.unit()
-
-      if (unit === 'pixel') {
-        const columnValue = areaSize === '*' ? '100fr' : `${areaSize}px`
-        columns.push(columnValue)
+      // Add area size column
+      if (!area.visible()) {
+        columns.push('0')
       } else {
-        const columnValue = areaSize === '*' ? `${100 - sumNonWildcardSizes}fr` : `${areaSize}fr`
-        columns.push(columnValue)
+        const areaSize = area._internalSize()
+        const unit = this.unit()
+
+        if (unit === 'pixel') {
+          const columnValue = areaSize === '*' ? '100fr' : `${areaSize}px`
+          columns.push(columnValue)
+        } else {
+          const columnValue = areaSize === '*' ? `${100 - sumNonWildcardSizes}fr` : `${areaSize}fr`
+          columns.push(columnValue)
+        }
+
+        visitedVisibleAreas++
       }
 
-      if (index !== areas.length - 1) {
+      const isLastArea = index === areas.length - 1
+
+      if (isLastArea) {
+        return
+      }
+
+      const remainingVisibleAreas = visibleAreasCount - visitedVisibleAreas
+
+      // Only add gutter with size if this area is visible and there are more visible areas after this one
+      // to avoid ghost gutters
+      if (area.visible() && remainingVisibleAreas > 0) {
         columns.push(`${this.gutterSize()}px`)
+      } else {
+        columns.push('0')
       }
     })
 
@@ -130,7 +154,31 @@ export class NewSplitComponent {
   // TODO: (?) dragProgress$
 
   constructor() {
-    effect(() => validateAreas(this.areas(), this.unit()))
+    effect(
+      () => {
+        const visibleAreas = this.visibleAreas()
+        const unit = this.unit()
+        const shouldDistributeSizeEvenly = visibleAreas.every((area) => area.size() === 'auto')
+
+        untracked(() => {
+          if (shouldDistributeSizeEvenly) {
+            if (unit === 'pixel') {
+              throw new Error('as-split: All areas without size can only be in percent mode')
+            }
+
+            visibleAreas.forEach((area) => area._internalSize.set(100 / visibleAreas.length))
+          } else {
+            // Visibility changed - reset back to sizes as we can't know if sizes will be valid
+            // Unit changed - the whole calculation is different so reset to the input size
+            // Area size changed - we need to reset all areas sizes as the change might break with current internal sizes
+            visibleAreas.forEach((area) => area._internalSize.reset())
+          }
+
+          validateAreas(visibleAreas, unit)
+        })
+      },
+      { allowSignalWrites: true },
+    )
 
     this.gutterMouseDown$
       .pipe(
@@ -231,7 +279,7 @@ export class NewSplitComponent {
   }
 
   protected getAriaAreaSizeText(area: NewSplitAreaComponent): string {
-    const size = area._normalizedSize()
+    const size = area._internalSize()
 
     if (size === '*') {
       return undefined
@@ -240,14 +288,14 @@ export class NewSplitComponent {
     return `${size.toFixed(0)} ${this.unit()}`
   }
 
-  protected getAriaValue(size: AreaSize) {
+  protected getAriaValue(size: SplitAreaSize) {
     return size === '*' ? undefined : size
   }
 
-  private createDragInteractionEvent(gutterIndex: number): GutterInteractionEvent {
+  private createDragInteractionEvent(gutterIndex: number): SplitGutterInteractionEvent {
     return {
       gutterNum: gutterIndex + 1,
-      sizes: this.areas().map((area) => area._normalizedSize()),
+      sizes: this.visibleAreas().map((area) => area._internalSize()),
     }
   }
 
@@ -318,8 +366,12 @@ export class NewSplitComponent {
     // instead of actual area sizes array
     const areasIndices = tempAreaPixelsSize.map((_, index) => index)
     // The two variables below are ordered for iterations with real area indices inside.
-    const areasIndicesBeforeGutter = areasIndices.slice(0, dragStartContext.areaBeforeGutterIndex + 1).reverse()
-    const areasIndicesAfterGutter = areasIndices.slice(dragStartContext.areaAfterGutterIndex)
+    const areasIndicesBeforeGutter = this.restrictMove()
+      ? [dragStartContext.areaBeforeGutterIndex]
+      : areasIndices.slice(0, dragStartContext.areaBeforeGutterIndex + 1).reverse()
+    const areasIndicesAfterGutter = this.restrictMove()
+      ? [dragStartContext.areaAfterGutterIndex]
+      : areasIndices.slice(dragStartContext.areaAfterGutterIndex)
     // Based on direction we need to decide which areas are expanding and which are shrinking
     const potentialAreasIndicesArrToShrink = isDraggingForward ? areasIndicesAfterGutter : areasIndicesBeforeGutter
     const potentialAreasIndicesArrToExpand = isDraggingForward ? areasIndicesBeforeGutter : areasIndicesAfterGutter
@@ -368,16 +420,16 @@ export class NewSplitComponent {
 
     this.areas().forEach((area, index) => {
       // No need to update wildcard size
-      if (area._normalizedSize() === '*') {
+      if (area._internalSize() === '*') {
         return
       }
 
       if (this.unit() === 'pixel') {
-        area.size.set(tempAreaPixelsSize[index])
+        area._internalSize.set(tempAreaPixelsSize[index])
       } else {
         // Precision of 3 prevents browser weird behavior with percent calculation and it is sensitive enough
         const percentSize = roundWithPrecision((tempAreaPixelsSize[index] / allAreasSumPixels) * 100, 3)
-        area.size.set(percentSize)
+        area._internalSize.set(percentSize)
       }
     })
   }
