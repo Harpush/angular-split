@@ -20,6 +20,7 @@
       (asSplitCustomDblClick)="gutterDoubleClicked($index)"
       (mousedown)="gutterMouseDown($event, $index, $index, $index + 1)"
       (touchstart)="gutterMouseDown($event, $index, $index, $index + 1)"
+      (keydown)="gutterKeyDown($event, $index, $index, $index + 1)"
     >
       <div class="as-split-gutter-icon"></div>
     </div>

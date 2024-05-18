@@ -9,8 +9,8 @@ export interface ClientPoint {
 /**
  * Only supporting a single {@link TouchEvent} point
  */
-export function getMousePointFromEvent(event: MouseEvent | TouchEvent): ClientPoint {
-  if ('changedTouches' in event) {
+export function getPointFromEvent(event: MouseEvent | TouchEvent | KeyboardEvent): ClientPoint {
+  if (event instanceof TouchEvent) {
     if (event.changedTouches.length === 0) {
       return undefined
     }
@@ -20,6 +20,16 @@ export function getMousePointFromEvent(event: MouseEvent | TouchEvent): ClientPo
     return {
       x: clientX,
       y: clientY,
+    }
+  }
+
+  if (event instanceof KeyboardEvent) {
+    const target = event.target as HTMLElement
+
+    // Calculate element midpoint
+    return {
+      x: target.offsetLeft + target.offsetWidth / 2,
+      y: target.offsetTop + target.offsetHeight / 2,
     }
   }
 

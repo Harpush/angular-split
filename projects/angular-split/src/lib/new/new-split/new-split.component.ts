@@ -16,10 +16,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { NewSplitAreaComponent } from '../new-split-area/new-split-area.component'
 import { Subject, map, pairwise, skipWhile, startWith, switchMap, take, takeUntil, tap } from 'rxjs'
 import {
+  ClientPoint,
   createClassesString,
   fromMouseMoveEvent,
   fromMouseUpEvent,
-  getMousePointFromEvent,
+  getPointFromEvent,
   roundWithPrecision,
   sum,
   sumNumArray,
@@ -43,7 +44,7 @@ interface AreaBoundary {
 }
 
 interface DragStartContext {
-  startEvent: MouseEvent | TouchEvent
+  startEvent: MouseEvent | TouchEvent | KeyboardEvent
   areaPixelsSize: number[]
   areaIndexToBoundaries: Record<number, AreaBoundary>
   areaBeforeGutterIndex: number
@@ -196,10 +197,16 @@ export class NewSplitComponent {
             takeUntil(fromMouseUpEvent(this.document, true).pipe(take(1))),
             tap(() => this.draggedGutterIndex.set(mouseDownContext.gutterIndex)),
             tap(() => this.dragStart.emit(this.createDragInteractionEvent(mouseDownContext.gutterIndex))),
-            map(([prevMoveEvent]) => this.createDragStartContext(prevMoveEvent, mouseDownContext)),
+            map(([prevMoveEvent]) =>
+              this.createDragStartContext(
+                prevMoveEvent,
+                mouseDownContext.areaBeforeGutterIndex,
+                mouseDownContext.areaAfterGutterIndex,
+              ),
+            ),
             switchMap((dragStartContext) =>
               fromMouseMoveEvent(this.document).pipe(
-                tap((moveEvent) => this.dragMove(moveEvent, dragStartContext)),
+                tap((moveEvent) => this.mouseDragMove(moveEvent, dragStartContext)),
                 takeUntil(fromMouseUpEvent(this.document, true).pipe(take(1))),
                 tap({
                   complete: () => {
@@ -243,8 +250,8 @@ export class NewSplitComponent {
   protected gutterMouseDown(
     e: MouseEvent | TouchEvent,
     gutterIndex: number,
-    areaBeforeIndex: number,
-    areaAfterIndex: number,
+    areaBeforeGutterIndex: number,
+    areaAfterGutterIndex: number,
   ) {
     // Only left clicks
     if (e instanceof MouseEvent && e.button !== 0) {
@@ -261,12 +268,87 @@ export class NewSplitComponent {
     this.gutterMouseDown$.next({
       mouseDownEvent: e,
       gutterIndex,
-      areaBeforeGutterIndex: areaBeforeIndex,
-      areaAfterGutterIndex: areaAfterIndex,
+      areaBeforeGutterIndex,
+      areaAfterGutterIndex,
     })
   }
 
-  // TODO: keyboard drag
+  protected gutterKeyDown(
+    e: KeyboardEvent,
+    gutterIndex: number,
+    areaBeforeGutterIndex: number,
+    areaAfterGutterIndex: number,
+  ) {
+    if (this.disabled()) {
+      return
+    }
+
+    const pixelsToMove = 50
+    const pageMoveMultiplier = 10
+
+    let xPointOffset = 0
+    let yPointOffset = 0
+
+    if (this.direction() === 'horizontal') {
+      // Even though we are going in the x axis we support page up and down
+      switch (e.key) {
+        case 'ArrowLeft':
+          xPointOffset -= pixelsToMove
+          break
+        case 'ArrowRight':
+          xPointOffset += pixelsToMove
+          break
+        case 'PageUp':
+          if (this.dir() === 'rtl') {
+            xPointOffset -= pixelsToMove * pageMoveMultiplier
+          } else {
+            xPointOffset += pixelsToMove * pageMoveMultiplier
+          }
+          break
+        case 'PageDown':
+          if (this.dir() === 'rtl') {
+            xPointOffset += pixelsToMove * pageMoveMultiplier
+          } else {
+            xPointOffset -= pixelsToMove * pageMoveMultiplier
+          }
+          break
+        default:
+          return
+      }
+    } else {
+      switch (e.key) {
+        case 'ArrowUp':
+          yPointOffset -= pixelsToMove
+          break
+        case 'ArrowDown':
+          yPointOffset += pixelsToMove
+          break
+        case 'PageUp':
+          yPointOffset -= pixelsToMove * pageMoveMultiplier
+          break
+        case 'PageDown':
+          yPointOffset += pixelsToMove * pageMoveMultiplier
+          break
+        default:
+          return
+      }
+    }
+
+    // Once here we know the event affects keyboard navigation
+    e.preventDefault()
+    e.stopPropagation()
+
+    const gutterMidPoint = getPointFromEvent(e)
+    const dragStartContext = this.createDragStartContext(e, areaBeforeGutterIndex, areaAfterGutterIndex)
+
+    this.draggedGutterIndex.set(gutterIndex)
+    this.dragStart.emit(this.createDragInteractionEvent(gutterIndex))
+
+    this.dragMoveToPoint({ x: gutterMidPoint.x + xPointOffset, y: gutterMidPoint.y + yPointOffset }, dragStartContext)
+
+    this.draggedGutterIndex.set(undefined)
+    this.dragEnd.emit(this.createDragInteractionEvent(gutterIndex))
+  }
 
   protected getGutterGridStyle(nextAreaIndex: number) {
     const gutterNum = nextAreaIndex * 2
@@ -300,8 +382,9 @@ export class NewSplitComponent {
   }
 
   private createDragStartContext(
-    startEvent: MouseEvent | TouchEvent,
-    mouseDownContext: MouseDownContext,
+    startEvent: MouseEvent | TouchEvent | KeyboardEvent,
+    areaBeforeGutterIndex: number,
+    areaAfterGutterIndex: number,
   ): DragStartContext {
     const areaPixelsSize = this.areas().map((area) => {
       const boundingRect = area._elementRef.nativeElement.getBoundingClientRect()
@@ -313,8 +396,8 @@ export class NewSplitComponent {
 
     return {
       startEvent,
-      areaBeforeGutterIndex: mouseDownContext.areaBeforeGutterIndex,
-      areaAfterGutterIndex: mouseDownContext.areaAfterGutterIndex,
+      areaBeforeGutterIndex,
+      areaAfterGutterIndex,
       areaPixelsSize,
       areaIndexToBoundaries: toRecord(this.areas(), (area, index) => {
         // Precision of 3 prevents browser weird behavior with percent calculation and it is sensitive enough
@@ -342,21 +425,26 @@ export class NewSplitComponent {
       return false
     }
 
-    const startPoint = getMousePointFromEvent(startEvent)
-    const endPoint = getMousePointFromEvent(endEvent)
+    const startPoint = getPointFromEvent(startEvent)
+    const endPoint = getPointFromEvent(endEvent)
     const deltaInPx = this.gutterClickDeltaPx()
 
     return Math.abs(endPoint.x - startPoint.x) <= deltaInPx && Math.abs(endPoint.y - startPoint.y) <= deltaInPx
   }
 
-  private dragMove(moveEvent: MouseEvent | TouchEvent, dragStartContext: DragStartContext) {
+  private mouseDragMove(moveEvent: MouseEvent | TouchEvent, dragStartContext: DragStartContext) {
     moveEvent.preventDefault()
     moveEvent.stopPropagation()
 
-    const startPoint = getMousePointFromEvent(dragStartContext.startEvent)
-    const endPoint = getMousePointFromEvent(moveEvent)
+    const endPoint = getPointFromEvent(moveEvent)
+
+    this.dragMoveToPoint(endPoint, dragStartContext)
+  }
+
+  private dragMoveToPoint(endPoint: ClientPoint, dragStartContext: DragStartContext) {
+    const startPoint = getPointFromEvent(dragStartContext.startEvent)
     const preDirOffset = this.direction() === 'horizontal' ? endPoint.x - startPoint.x : endPoint.y - startPoint.y
-    const offset = this.dir() === 'ltr' ? preDirOffset : -preDirOffset
+    const offset = this.direction() === 'horizontal' && this.dir() === 'rtl' ? -preDirOffset : preDirOffset
     const isDraggingForward = offset > 0
     // Align offset with gutter step and abs it as we need absolute pixels movement
     const absSteppedOffset = Math.abs(Math.round(offset / this.gutterStep()) * this.gutterStep())
