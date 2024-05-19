@@ -16,6 +16,7 @@
       [class.as-dragged]="draggedGutterIndex() === $index"
       asSplitCustomClickBehavior
       [asSplitCustomMultiClickThreshold]="gutterDblClickDuration()"
+      [asSplitCustomClickDeltaInPx]="gutterClickDeltaPx()"
       (asSplitCustomClick)="gutterClicked($index)"
       (asSplitCustomDblClick)="gutterDoubleClicked($index)"
       (mousedown)="gutterMouseDown($event, $index, $index, $index + 1)"

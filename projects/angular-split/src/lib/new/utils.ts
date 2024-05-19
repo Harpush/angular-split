@@ -39,6 +39,21 @@ export function getPointFromEvent(event: MouseEvent | TouchEvent | KeyboardEvent
   }
 }
 
+export function eventsEqualWithDelta(
+  startEvent: MouseEvent | TouchEvent,
+  endEvent: MouseEvent | TouchEvent,
+  deltaInPx: number,
+) {
+  if (startEvent.target !== endEvent.target) {
+    return false
+  }
+
+  const startPoint = getPointFromEvent(startEvent)
+  const endPoint = getPointFromEvent(endEvent)
+
+  return Math.abs(endPoint.x - startPoint.x) <= deltaInPx && Math.abs(endPoint.y - startPoint.y) <= deltaInPx
+}
+
 export function roundWithPrecision(num: number, precision: number) {
   return Math.round(num * 10 ** precision) / 10 ** precision
 }

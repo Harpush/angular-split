@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   HostBinding,
@@ -19,6 +20,7 @@ import { SplitAreaSize, areaSizeTransform, boundaryAreaSizeTransform } from '../
   exportAs: 'asSplitArea',
   templateUrl: './new-split-area.component.html',
   styleUrl: './new-split-area.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewSplitAreaComponent {
   protected readonly split = inject(NewSplitComponent)

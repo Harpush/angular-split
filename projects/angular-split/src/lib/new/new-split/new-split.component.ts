@@ -1,6 +1,9 @@
 import {
+  ChangeDetectionStrategy,
   Component,
+  ElementRef,
   HostBinding,
+  Renderer2,
   booleanAttribute,
   computed,
   contentChildren,
@@ -18,6 +21,7 @@ import { Subject, map, pairwise, skipWhile, startWith, switchMap, take, takeUnti
 import {
   ClientPoint,
   createClassesString,
+  eventsEqualWithDelta,
   fromMouseMoveEvent,
   fromMouseUpEvent,
   getPointFromEvent,
@@ -58,9 +62,12 @@ interface DragStartContext {
   exportAs: 'asSplit',
   templateUrl: './new-split.component.html',
   styleUrl: './new-split.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NewSplitComponent {
   private readonly document = inject(DOCUMENT)
+  private readonly renderer = inject(Renderer2)
+  private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
 
   // TODO: Global config
   // TODO: Change detection decisions
@@ -145,9 +152,6 @@ export class NewSplitComponent {
   protected readonly draggedGutterIndex = signal<number>(undefined)
   readonly _isDragging = computed(() => this.draggedGutterIndex() !== undefined)
 
-  @HostBinding('style.grid-template') protected get hostGridTemplateColumnsStyleBinding() {
-    return this.gridTemplateColumnsStyle()
-  }
   @HostBinding('class') protected get hostClassesBinding() {
     return this.hostClasses()
   }
@@ -155,6 +159,7 @@ export class NewSplitComponent {
   // TODO: (?) dragProgress$
 
   constructor() {
+    // Responsible for auto areas sizes distribution and areas sizes validations
     effect(
       () => {
         const visibleAreas = this.visibleAreas()
@@ -181,6 +186,27 @@ export class NewSplitComponent {
       { allowSignalWrites: true },
     )
 
+    // Responsible of emitting drag start and end events
+    effect(() => {
+      const draggedGutterIndex = this.draggedGutterIndex()
+
+      untracked(() => {
+        if (draggedGutterIndex !== undefined) {
+          this.dragStart.emit(this.createDragInteractionEvent(draggedGutterIndex))
+        } else {
+          this.dragEnd.emit(this.createDragInteractionEvent(draggedGutterIndex))
+        }
+      })
+    })
+
+    // Responsible for updating grid template style. Must be this way and not based on HostBinding
+    // as change detection fo host binding is bound to the parent component and this style
+    // is updated on every muse move. Doing it this way will prevent change detection cycles in parent.
+    effect(() => {
+      const gridTemplateColumnsStyle = this.gridTemplateColumnsStyle()
+      this.renderer.setStyle(this.elementRef.nativeElement, 'grid-template', gridTemplateColumnsStyle)
+    })
+
     this.gutterMouseDown$
       .pipe(
         switchMap((mouseDownContext) =>
@@ -192,11 +218,12 @@ export class NewSplitComponent {
           fromMouseMoveEvent(this.document).pipe(
             startWith(mouseDownContext.mouseDownEvent),
             pairwise(),
-            skipWhile(([, currMoveEvent]) => this.eventsEqualWithDelta(mouseDownContext.mouseDownEvent, currMoveEvent)),
+            skipWhile(([, currMoveEvent]) =>
+              eventsEqualWithDelta(mouseDownContext.mouseDownEvent, currMoveEvent, this.gutterClickDeltaPx()),
+            ),
             take(1),
             takeUntil(fromMouseUpEvent(this.document, true).pipe(take(1))),
             tap(() => this.draggedGutterIndex.set(mouseDownContext.gutterIndex)),
-            tap(() => this.dragStart.emit(this.createDragInteractionEvent(mouseDownContext.gutterIndex))),
             map(([prevMoveEvent]) =>
               this.createDragStartContext(
                 prevMoveEvent,
@@ -209,16 +236,7 @@ export class NewSplitComponent {
                 tap((moveEvent) => this.mouseDragMove(moveEvent, dragStartContext)),
                 takeUntil(fromMouseUpEvent(this.document, true).pipe(take(1))),
                 tap({
-                  complete: () => {
-                    if (this._isDragging()) {
-                      // Needed as there is no better way to cancel the click event
-                      // that will come after the mouseup event.
-                      setTimeout(() => {
-                        this.draggedGutterIndex.set(undefined)
-                        this.dragEnd.emit(this.createDragInteractionEvent(mouseDownContext.gutterIndex))
-                      })
-                    }
-                  },
+                  complete: () => this.draggedGutterIndex.set(undefined),
                 }),
               ),
             ),
@@ -230,20 +248,10 @@ export class NewSplitComponent {
   }
 
   protected gutterClicked(gutterIndex: number) {
-    // Just ended dragging so ignore
-    if (this._isDragging()) {
-      return
-    }
-
     this.gutterClick.emit(this.createDragInteractionEvent(gutterIndex))
   }
 
   protected gutterDoubleClicked(gutterIndex: number) {
-    // Just ended dragging so ignore
-    if (this._isDragging()) {
-      return
-    }
-
     this.gutterDblClick.emit(this.createDragInteractionEvent(gutterIndex))
   }
 
@@ -342,12 +350,10 @@ export class NewSplitComponent {
     const dragStartContext = this.createDragStartContext(e, areaBeforeGutterIndex, areaAfterGutterIndex)
 
     this.draggedGutterIndex.set(gutterIndex)
-    this.dragStart.emit(this.createDragInteractionEvent(gutterIndex))
 
     this.dragMoveToPoint({ x: gutterMidPoint.x + xPointOffset, y: gutterMidPoint.y + yPointOffset }, dragStartContext)
 
     this.draggedGutterIndex.set(undefined)
-    this.dragEnd.emit(this.createDragInteractionEvent(gutterIndex))
   }
 
   protected getGutterGridStyle(nextAreaIndex: number) {
@@ -417,19 +423,6 @@ export class NewSplitComponent {
         return [index.toString(), value]
       }),
     }
-  }
-
-  private eventsEqualWithDelta(startEvent: MouseEvent | TouchEvent, endEvent: MouseEvent | TouchEvent) {
-    // We are leaving the gutter with this mousemove event
-    if (startEvent.target !== endEvent.target) {
-      return false
-    }
-
-    const startPoint = getPointFromEvent(startEvent)
-    const endPoint = getPointFromEvent(endEvent)
-    const deltaInPx = this.gutterClickDeltaPx()
-
-    return Math.abs(endPoint.x - startPoint.x) <= deltaInPx && Math.abs(endPoint.y - startPoint.y) <= deltaInPx
   }
 
   private mouseDragMove(moveEvent: MouseEvent | TouchEvent, dragStartContext: DragStartContext) {
