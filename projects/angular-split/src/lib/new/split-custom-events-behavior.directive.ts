@@ -1,6 +1,6 @@
 import { Directive, ElementRef, inject, input, output } from '@angular/core'
-import { eventsEqualWithDelta, fromMouseDownEvent, fromMouseUpEvent } from './utils'
-import { delay, filter, map, mergeMap, of, scan, switchMap, take, timeInterval } from 'rxjs'
+import { eventsEqualWithDelta, fromMouseDownEvent, fromMouseUpEvent, leaveNgZone } from './utils'
+import { delay, filter, fromEvent, map, mergeMap, of, scan, switchMap, take, tap, timeInterval } from 'rxjs'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 
 /**
@@ -8,22 +8,30 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
  * 1. Supports touch events (tap and double tap)
  * 2. Ignores the first click in a double click with the side effect of a bit slower emission of fast click event
  * 3. Allow customizing the delay after mouse down to count another mouse down as a double click
+ * 4. All outputs run outside zone for better CD handling
  */
 @Directive({
-  selector: '[asSplitCustomClickBehavior]',
+  selector: '[asSplitCustomEventsBehavior]',
   standalone: true,
 })
-export class SplitCustomClickBehaviorDirective {
+export class SplitCustomEventsBehaviorDirective {
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
 
   readonly multiClickThreshold = input.required<number>({ alias: 'asSplitCustomMultiClickThreshold' })
   readonly deltaInPx = input.required<number>({ alias: 'asSplitCustomClickDeltaInPx' })
+  readonly mouseDown = output<MouseEvent | TouchEvent>({ alias: 'asSplitCustomMouseDown' })
   readonly click = output({ alias: 'asSplitCustomClick' })
   readonly dblClick = output({ alias: 'asSplitCustomDblClick' })
+  readonly keyDown = output<KeyboardEvent>({ alias: 'asSplitCustomKeyDown' })
 
   constructor() {
+    fromEvent<KeyboardEvent>(this.elementRef.nativeElement, 'keydown')
+      .pipe(leaveNgZone(), takeUntilDestroyed())
+      .subscribe((e) => this.keyDown.emit(e))
+
     fromMouseDownEvent(this.elementRef.nativeElement)
       .pipe(
+        tap((e) => this.mouseDown.emit(e)),
         // Gather mousedown events intervals to identify whether it is a single double or more click
         timeInterval(),
         // We only count a click as part of a multi click if the multiClickThreshold wasn't reached
@@ -52,6 +60,7 @@ export class SplitCustomClickBehaviorDirective {
                 ),
           ),
         ),
+        leaveNgZone(),
         takeUntilDestroyed(),
       )
       .subscribe((amount) => {

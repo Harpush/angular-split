@@ -31,7 +31,6 @@ export class NewSplitAreaComponent {
   readonly maxSize = input('*', { transform: boundaryAreaSizeTransform })
   readonly lockSize = input(false, { transform: booleanAttribute })
   readonly visible = input(true)
-  // TODO: transition
   // TODO: collapse/expand
 
   // As size is an input and we can change the size without the outside

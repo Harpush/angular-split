@@ -1,5 +1,5 @@
-import { Signal, computed, signal, untracked } from '@angular/core'
-import { filter, fromEvent, merge } from 'rxjs'
+import { NgZone, Signal, computed, inject, signal, untracked } from '@angular/core'
+import { Observable, filter, fromEvent, merge } from 'rxjs'
 
 export interface ClientPoint {
   x: number
@@ -124,4 +124,9 @@ export function mirrorSignal<T>(outer: Signal<T>): MirrorSignal<T> {
   mirror.set = (value: T) => untracked(inner).set(value)
   mirror.reset = () => untracked(() => inner().set(outer()))
   return mirror
+}
+
+export function leaveNgZone<T>() {
+  return (source: Observable<T>) =>
+    new Observable<T>((observer) => inject(NgZone).runOutsideAngular(() => source.subscribe(observer)))
 }

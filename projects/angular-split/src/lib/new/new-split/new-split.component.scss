@@ -5,6 +5,10 @@
   width: 100%;
 }
 
+:host(.as-transition) {
+  transition: grid-template 0.3s;
+}
+
 .as-split-gutter {
   background-color: #eeeeee;
   display: flex;

@@ -14,14 +14,13 @@
       [attr.aria-valuetext]="getAriaAreaSizeText(area)"
       [ngStyle]="getGutterGridStyle($index + 1)"
       [class.as-dragged]="draggedGutterIndex() === $index"
-      asSplitCustomClickBehavior
+      asSplitCustomEventsBehavior
       [asSplitCustomMultiClickThreshold]="gutterDblClickDuration()"
       [asSplitCustomClickDeltaInPx]="gutterClickDeltaPx()"
       (asSplitCustomClick)="gutterClicked($index)"
       (asSplitCustomDblClick)="gutterDoubleClicked($index)"
-      (mousedown)="gutterMouseDown($event, $index, $index, $index + 1)"
-      (touchstart)="gutterMouseDown($event, $index, $index, $index + 1)"
-      (keydown)="gutterKeyDown($event, $index, $index, $index + 1)"
+      (asSplitCustomMouseDown)="gutterMouseDown($event, $index, $index, $index + 1)"
+      (asSplitCustomKeyDown)="gutterKeyDown($event, $index, $index, $index + 1)"
     >
       <div class="as-split-gutter-icon"></div>
     </div>

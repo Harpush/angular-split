@@ -20,17 +20,17 @@ import { AComponent } from '../../ui/components/AComponent'
     <div class="container">
       <sp-example-title [type]="exampleEnum.TOGGLE"></sp-example-title>
       <div class="split-example ex1" style="height: 150px;">
-        <as-split [gutterSize]="15" (dragEnd)="log('dragEnd', $event)">
-          <as-split-area *ngIf="action.isPresentA" [visible]="action.isVisibleA" [order]="0">
+        <as-new-split [gutterSize]="15" (dragEnd)="log('dragEnd', $event)">
+          <as-new-split-area *ngIf="action.isPresentA" [visible]="action.isVisibleA">
             <p>A</p>
-          </as-split-area>
-          <as-split-area *ngIf="action.isPresentB" [visible]="action.isVisibleB" [order]="1">
+          </as-new-split-area>
+          <as-new-split-area *ngIf="action.isPresentB" [visible]="action.isVisibleB">
             <p>B</p>
-          </as-split-area>
-          <as-split-area *ngIf="action.isPresentC" [visible]="action.isVisibleC" [order]="2">
+          </as-new-split-area>
+          <as-new-split-area *ngIf="action.isPresentC" [visible]="action.isVisibleC">
             <p>C</p>
-          </as-split-area>
-        </as-split>
+          </as-new-split-area>
+        </as-new-split>
       </div>
       <p>Toggle <code>[visible]="boolean"</code> properties:</p>
       <div class="btns">
@@ -88,7 +88,7 @@ import { AComponent } from '../../ui/components/AComponent'
   `,
 })
 export class TogglingDomAndVisibleComponent extends AComponent {
-  @HostBinding('class') class = 'split-example-page';
+  @HostBinding('class') class = 'split-example-page'
 
   action = {
     isVisibleA: true,

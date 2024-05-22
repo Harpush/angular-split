@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   HostBinding,
+  NgZone,
   Renderer2,
   booleanAttribute,
   computed,
@@ -17,7 +18,7 @@ import {
 } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { NewSplitAreaComponent } from '../new-split-area/new-split-area.component'
-import { Subject, map, pairwise, skipWhile, startWith, switchMap, take, takeUntil, tap } from 'rxjs'
+import { Subject, filter, fromEvent, map, pairwise, skipWhile, startWith, switchMap, take, takeUntil, tap } from 'rxjs'
 import {
   ClientPoint,
   createClassesString,
@@ -25,6 +26,7 @@ import {
   fromMouseMoveEvent,
   fromMouseUpEvent,
   getPointFromEvent,
+  leaveNgZone,
   roundWithPrecision,
   sum,
   sumNumArray,
@@ -32,7 +34,7 @@ import {
 } from '../utils'
 import { DOCUMENT, NgStyle } from '@angular/common'
 import { SplitGutterInteractionEvent, SplitAreaSize, SplitUnit } from '../models'
-import { SplitCustomClickBehaviorDirective } from '../split-custom-click-behavior.directive'
+import { SplitCustomEventsBehaviorDirective } from '../split-custom-events-behavior.directive'
 import { validateAreas } from '../validations'
 
 interface MouseDownContext {
@@ -58,7 +60,7 @@ interface DragStartContext {
 @Component({
   selector: 'as-new-split',
   standalone: true,
-  imports: [NgStyle, SplitCustomClickBehaviorDirective],
+  imports: [NgStyle, SplitCustomEventsBehaviorDirective],
   exportAs: 'asSplit',
   templateUrl: './new-split.component.html',
   styleUrl: './new-split.component.scss',
@@ -68,10 +70,11 @@ export class NewSplitComponent {
   private readonly document = inject(DOCUMENT)
   private readonly renderer = inject(Renderer2)
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
+  private readonly ngZone = inject(NgZone)
 
   // TODO: Global config
-  // TODO: Change detection decisions
   private readonly gutterMouseDown$ = new Subject<MouseDownContext>()
+  private readonly dragProgressSubject = new Subject<SplitGutterInteractionEvent>()
 
   readonly areas = contentChildren(NewSplitAreaComponent)
   readonly gutterSize = input(11, { transform: numberAttribute })
@@ -83,14 +86,15 @@ export class NewSplitComponent {
   readonly unit = input<SplitUnit>('percent')
   readonly gutterAriaLabel = input<string>()
   readonly restrictMove = input(false, { transform: booleanAttribute })
-  // TODO: useTransition
+  readonly useTransition = input(false, { transform: booleanAttribute })
   readonly gutterClick = output<SplitGutterInteractionEvent>()
   readonly gutterDblClick = output<SplitGutterInteractionEvent>()
   readonly gutterDblClickDuration = input(0)
   readonly dragStart = output<SplitGutterInteractionEvent>()
   readonly dragEnd = output<SplitGutterInteractionEvent>()
+  readonly transitionEnd = output<SplitAreaSize[]>()
 
-  // TODO: transitionEnd
+  readonly dragProgress$ = this.dragProgressSubject.asObservable()
 
   readonly visibleAreas = computed(() => this.areas().filter((area) => area.visible()))
   private readonly gridTemplateColumnsStyle = computed(() => {
@@ -106,7 +110,7 @@ export class NewSplitComponent {
     this.areas().forEach((area, index, areas) => {
       // Add area size column
       if (!area.visible()) {
-        columns.push('0')
+        columns.push('0fr')
       } else {
         const areaSize = area._internalSize()
         const unit = this.unit()
@@ -135,7 +139,7 @@ export class NewSplitComponent {
       if (area.visible() && remainingVisibleAreas > 0) {
         columns.push(`${this.gutterSize()}px`)
       } else {
-        columns.push('0')
+        columns.push('0px')
       }
     })
 
@@ -147,6 +151,7 @@ export class NewSplitComponent {
       [`as-${this.unit()}`]: true,
       ['as-disabled']: this.disabled(),
       ['as-dragging']: this._isDragging(),
+      ['as-transition']: this.useTransition() && !this._isDragging(),
     }),
   )
   protected readonly draggedGutterIndex = signal<number>(undefined)
@@ -155,8 +160,6 @@ export class NewSplitComponent {
   @HostBinding('class') protected get hostClassesBinding() {
     return this.hostClasses()
   }
-
-  // TODO: (?) dragProgress$
 
   constructor() {
     // Responsible for auto areas sizes distribution and areas sizes validations
@@ -186,19 +189,6 @@ export class NewSplitComponent {
       { allowSignalWrites: true },
     )
 
-    // Responsible of emitting drag start and end events
-    effect(() => {
-      const draggedGutterIndex = this.draggedGutterIndex()
-
-      untracked(() => {
-        if (draggedGutterIndex !== undefined) {
-          this.dragStart.emit(this.createDragInteractionEvent(draggedGutterIndex))
-        } else {
-          this.dragEnd.emit(this.createDragInteractionEvent(draggedGutterIndex))
-        }
-      })
-    })
-
     // Responsible for updating grid template style. Must be this way and not based on HostBinding
     // as change detection fo host binding is bound to the parent component and this style
     // is updated on every muse move. Doing it this way will prevent change detection cycles in parent.
@@ -223,7 +213,12 @@ export class NewSplitComponent {
             ),
             take(1),
             takeUntil(fromMouseUpEvent(this.document, true).pipe(take(1))),
-            tap(() => this.draggedGutterIndex.set(mouseDownContext.gutterIndex)),
+            tap(() => {
+              this.ngZone.run(() => {
+                this.dragStart.emit(this.createDragInteractionEvent(mouseDownContext.gutterIndex))
+                this.draggedGutterIndex.set(mouseDownContext.gutterIndex)
+              })
+            }),
             map(([prevMoveEvent]) =>
               this.createDragStartContext(
                 prevMoveEvent,
@@ -236,7 +231,12 @@ export class NewSplitComponent {
                 tap((moveEvent) => this.mouseDragMove(moveEvent, dragStartContext)),
                 takeUntil(fromMouseUpEvent(this.document, true).pipe(take(1))),
                 tap({
-                  complete: () => this.draggedGutterIndex.set(undefined),
+                  complete: () => {
+                    this.ngZone.run(() => {
+                      this.dragEnd.emit(this.createDragInteractionEvent(this.draggedGutterIndex()))
+                      this.draggedGutterIndex.set(undefined)
+                    })
+                  },
                 }),
               ),
             ),
@@ -245,14 +245,22 @@ export class NewSplitComponent {
         takeUntilDestroyed(),
       )
       .subscribe()
+
+    fromEvent<TransitionEvent>(this.elementRef.nativeElement, 'transitionend')
+      .pipe(
+        filter((e) => e.propertyName === 'grid-template'),
+        leaveNgZone(),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.ngZone.run(() => this.transitionEnd.emit(this.createAreaSizes())))
   }
 
   protected gutterClicked(gutterIndex: number) {
-    this.gutterClick.emit(this.createDragInteractionEvent(gutterIndex))
+    this.ngZone.run(() => this.gutterClick.emit(this.createDragInteractionEvent(gutterIndex)))
   }
 
   protected gutterDoubleClicked(gutterIndex: number) {
-    this.gutterDblClick.emit(this.createDragInteractionEvent(gutterIndex))
+    this.ngZone.run(() => this.gutterDblClick.emit(this.createDragInteractionEvent(gutterIndex)))
   }
 
   protected gutterMouseDown(
@@ -266,12 +274,12 @@ export class NewSplitComponent {
       return
     }
 
-    e.preventDefault()
-    e.stopPropagation()
-
     if (this.disabled()) {
       return
     }
+
+    e.preventDefault()
+    e.stopPropagation()
 
     this.gutterMouseDown$.next({
       mouseDownEvent: e,
@@ -342,18 +350,21 @@ export class NewSplitComponent {
       }
     }
 
-    // Once here we know the event affects keyboard navigation
     e.preventDefault()
     e.stopPropagation()
 
     const gutterMidPoint = getPointFromEvent(e)
     const dragStartContext = this.createDragStartContext(e, areaBeforeGutterIndex, areaAfterGutterIndex)
 
-    this.draggedGutterIndex.set(gutterIndex)
+    this.ngZone.run(() => {
+      this.dragStart.emit(this.createDragInteractionEvent(gutterIndex))
+      this.draggedGutterIndex.set(gutterIndex)
 
-    this.dragMoveToPoint({ x: gutterMidPoint.x + xPointOffset, y: gutterMidPoint.y + yPointOffset }, dragStartContext)
+      this.dragMoveToPoint({ x: gutterMidPoint.x + xPointOffset, y: gutterMidPoint.y + yPointOffset }, dragStartContext)
 
-    this.draggedGutterIndex.set(undefined)
+      this.dragEnd.emit(this.createDragInteractionEvent(gutterIndex))
+      this.draggedGutterIndex.set(undefined)
+    })
   }
 
   protected getGutterGridStyle(nextAreaIndex: number) {
@@ -383,8 +394,12 @@ export class NewSplitComponent {
   private createDragInteractionEvent(gutterIndex: number): SplitGutterInteractionEvent {
     return {
       gutterNum: gutterIndex + 1,
-      sizes: this.visibleAreas().map((area) => area._internalSize()),
+      sizes: this.createAreaSizes(),
     }
+  }
+
+  private createAreaSizes() {
+    return this.visibleAreas().map((area) => area._internalSize())
   }
 
   private createDragStartContext(
@@ -513,5 +528,7 @@ export class NewSplitComponent {
         area._internalSize.set(percentSize)
       }
     })
+
+    this.dragProgressSubject.next(this.createDragInteractionEvent(this.draggedGutterIndex()))
   }
 }
