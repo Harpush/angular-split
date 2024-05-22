@@ -31,7 +31,6 @@ export class NewSplitAreaComponent {
   readonly maxSize = input('*', { transform: boundaryAreaSizeTransform })
   readonly lockSize = input(false, { transform: booleanAttribute })
   readonly visible = input(true)
-  // TODO: collapse/expand
 
   // As size is an input and we can change the size without the outside
   // listening to the change we need an intermediate writeable signal
@@ -48,7 +47,7 @@ export class NewSplitAreaComponent {
   )
   readonly _normalizedMinSize = computed(() => this.normalizeSizeBoundary(this.minSize, 0))
   readonly _normalizedMaxSize = computed(() => this.normalizeSizeBoundary(this.maxSize, Infinity))
-  private readonly index = computed(() => this.split.areas().findIndex((area) => area === this))
+  private readonly index = computed(() => this.split._areas().findIndex((area) => area === this))
   private readonly gridAreaNum = computed(() => this.index() * 2 + 1)
   private readonly hostClasses = computed(() =>
     createClassesString({

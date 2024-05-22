@@ -1,5 +1,5 @@
 <ng-content></ng-content>
-@for (area of areas(); track area) {
+@for (area of _areas(); track area) {
   @if (!$last) {
     <div
       #gutter
@@ -22,7 +22,26 @@
       (asSplitCustomMouseDown)="gutterMouseDown($event, $index, $index, $index + 1)"
       (asSplitCustomKeyDown)="gutterKeyDown($event, $index, $index, $index + 1)"
     >
-      <div class="as-split-gutter-icon"></div>
+      @if (customGutter()?.template) {
+        <ng-container *asSplitGutterDynamicInjector="$index + 1; let injector">
+          <ng-container
+            *ngTemplateOutlet="
+              customGutter().template;
+              context: {
+                areaBefore: area,
+                areaAfter: _areas()[$index + 1],
+                gutterNum: $index + 1,
+                first: $first,
+                last: $index === _areas().length - 2,
+                isDragged: _isDragging()
+              };
+              injector: injector
+            "
+          ></ng-container>
+        </ng-container>
+      } @else {
+        <div class="as-split-gutter-icon"></div>
+      }
     </div>
   }
 }

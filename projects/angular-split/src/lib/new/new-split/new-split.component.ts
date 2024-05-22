@@ -7,6 +7,7 @@ import {
   Renderer2,
   booleanAttribute,
   computed,
+  contentChild,
   contentChildren,
   effect,
   inject,
@@ -36,6 +37,7 @@ import { DOCUMENT, NgStyle } from '@angular/common'
 import { SplitGutterInteractionEvent, SplitAreaSize, SplitUnit } from '../models'
 import { SplitCustomEventsBehaviorDirective } from '../split-custom-events-behavior.directive'
 import { validateAreas } from '../validations'
+import { SplitGutterDirective } from '../../gutter/split-gutter.directive'
 
 interface MouseDownContext {
   mouseDownEvent: MouseEvent | TouchEvent
@@ -76,7 +78,8 @@ export class NewSplitComponent {
   private readonly gutterMouseDown$ = new Subject<MouseDownContext>()
   private readonly dragProgressSubject = new Subject<SplitGutterInteractionEvent>()
 
-  readonly areas = contentChildren(NewSplitAreaComponent)
+  readonly _areas = contentChildren(NewSplitAreaComponent)
+  protected readonly customGutter = contentChild(SplitGutterDirective)
   readonly gutterSize = input(11, { transform: numberAttribute })
   readonly gutterStep = input(1, { transform: numberAttribute })
   readonly disabled = input(false, { transform: booleanAttribute })
@@ -96,7 +99,7 @@ export class NewSplitComponent {
 
   readonly dragProgress$ = this.dragProgressSubject.asObservable()
 
-  readonly visibleAreas = computed(() => this.areas().filter((area) => area.visible()))
+  private readonly visibleAreas = computed(() => this._areas().filter((area) => area.visible()))
   private readonly gridTemplateColumnsStyle = computed(() => {
     const columns: string[] = []
     const sumNonWildcardSizes = sum(this.visibleAreas(), (area) => {
@@ -107,7 +110,7 @@ export class NewSplitComponent {
 
     let visitedVisibleAreas = 0
 
-    this.areas().forEach((area, index, areas) => {
+    this._areas().forEach((area, index, areas) => {
       // Add area size column
       if (!area.visible()) {
         columns.push('0fr')
@@ -199,6 +202,11 @@ export class NewSplitComponent {
 
     this.gutterMouseDown$
       .pipe(
+        filter(
+          (context) =>
+            !this.customGutter() ||
+            this.customGutter().canStartDragging(context.mouseDownEvent.target as HTMLElement, context.gutterIndex + 1),
+        ),
         switchMap((mouseDownContext) =>
           // As we have gutterClickDeltaPx we can't just start the drag but need to make sure
           // we are out of the delta pixels. As the delta can be any number we make sure
@@ -407,7 +415,7 @@ export class NewSplitComponent {
     areaBeforeGutterIndex: number,
     areaAfterGutterIndex: number,
   ): DragStartContext {
-    const areaPixelsSize = this.areas().map((area) => {
+    const areaPixelsSize = this._areas().map((area) => {
       const boundingRect = area._elementRef.nativeElement.getBoundingClientRect()
       const size = this.direction() === 'horizontal' ? boundingRect.width : boundingRect.height
 
@@ -420,7 +428,7 @@ export class NewSplitComponent {
       areaBeforeGutterIndex,
       areaAfterGutterIndex,
       areaPixelsSize,
-      areaIndexToBoundaries: toRecord(this.areas(), (area, index) => {
+      areaIndexToBoundaries: toRecord(this._areas(), (area, index) => {
         // Precision of 3 prevents browser weird behavior with percent calculation and it is sensitive enough
         const percentToRoundedPixels = (percent: number) => roundWithPrecision((percent / 100) * allAreasSumPixels, 3)
 
@@ -514,7 +522,7 @@ export class NewSplitComponent {
     // Once pixels transfer is done - we can update the areas with their new sizes
     const allAreasSumPixels = sumNumArray(tempAreaPixelsSize)
 
-    this.areas().forEach((area, index) => {
+    this._areas().forEach((area, index) => {
       // No need to update wildcard size
       if (area._internalSize() === '*') {
         return
