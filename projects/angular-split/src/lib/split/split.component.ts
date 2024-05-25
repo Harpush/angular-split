@@ -12,13 +12,12 @@ import {
   effect,
   inject,
   input,
-  numberAttribute,
   output,
   signal,
   untracked,
 } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
-import { NewSplitAreaComponent } from '../new-split-area/new-split-area.component'
+import { SplitAreaComponent } from '../split-area/split-area.component'
 import { Subject, filter, fromEvent, map, pairwise, skipWhile, startWith, switchMap, take, takeUntil, tap } from 'rxjs'
 import {
   ClientPoint,
@@ -28,16 +27,18 @@ import {
   fromMouseUpEvent,
   getPointFromEvent,
   leaveNgZone,
+  numberAttributeWithFallback,
   roundWithPrecision,
   sum,
-  sumNumArray,
   toRecord,
 } from '../utils'
-import { DOCUMENT, NgStyle } from '@angular/common'
-import { SplitGutterInteractionEvent, SplitAreaSize, SplitUnit } from '../models'
+import { DOCUMENT, NgStyle, NgTemplateOutlet } from '@angular/common'
+import { SplitGutterInteractionEvent, SplitAreaSize } from '../models'
 import { SplitCustomEventsBehaviorDirective } from '../split-custom-events-behavior.directive'
 import { validateAreas } from '../validations'
-import { SplitGutterDirective } from '../../gutter/split-gutter.directive'
+import { SplitGutterDirective } from '../gutter/split-gutter.directive'
+import { SplitGutterDynamicInjectorDirective } from '../gutter/split-gutter-dynamic-injector.directive'
+import { ANGULAR_SPLIT_DEFAULT_OPTIONS } from '../angular-split-config.token'
 
 interface MouseDownContext {
   mouseDownEvent: MouseEvent | TouchEvent
@@ -54,45 +55,52 @@ interface AreaBoundary {
 interface DragStartContext {
   startEvent: MouseEvent | TouchEvent | KeyboardEvent
   areaPixelsSize: number[]
+  totalAreasPixelSize: number
   areaIndexToBoundaries: Record<number, AreaBoundary>
   areaBeforeGutterIndex: number
   areaAfterGutterIndex: number
 }
 
 @Component({
-  selector: 'as-new-split',
+  selector: 'as-split',
   standalone: true,
-  imports: [NgStyle, SplitCustomEventsBehaviorDirective],
+  imports: [NgStyle, SplitCustomEventsBehaviorDirective, SplitGutterDynamicInjectorDirective, NgTemplateOutlet],
   exportAs: 'asSplit',
-  templateUrl: './new-split.component.html',
-  styleUrl: './new-split.component.scss',
+  templateUrl: './split.component.html',
+  styleUrl: './split.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class NewSplitComponent {
+export class SplitComponent {
   private readonly document = inject(DOCUMENT)
   private readonly renderer = inject(Renderer2)
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
   private readonly ngZone = inject(NgZone)
+  private readonly defaultOptions = inject(ANGULAR_SPLIT_DEFAULT_OPTIONS)
 
-  // TODO: Global config
   private readonly gutterMouseDown$ = new Subject<MouseDownContext>()
   private readonly dragProgressSubject = new Subject<SplitGutterInteractionEvent>()
 
-  readonly _areas = contentChildren(NewSplitAreaComponent)
+  readonly _areas = contentChildren(SplitAreaComponent)
   protected readonly customGutter = contentChild(SplitGutterDirective)
-  readonly gutterSize = input(11, { transform: numberAttribute })
-  readonly gutterStep = input(1, { transform: numberAttribute })
-  readonly disabled = input(false, { transform: booleanAttribute })
-  readonly gutterClickDeltaPx = input(2, { transform: numberAttribute })
-  readonly direction = input<'horizontal' | 'vertical'>('horizontal')
-  readonly dir = input<'ltr' | 'rtl'>('ltr')
-  readonly unit = input<SplitUnit>('percent')
+  readonly gutterSize = input(this.defaultOptions.gutterSize, {
+    transform: numberAttributeWithFallback(this.defaultOptions.gutterSize),
+  })
+  readonly gutterStep = input(this.defaultOptions.gutterStep, {
+    transform: numberAttributeWithFallback(this.defaultOptions.gutterStep),
+  })
+  readonly disabled = input(this.defaultOptions.disabled, { transform: booleanAttribute })
+  readonly gutterClickDeltaPx = input(this.defaultOptions.gutterClickDeltaPx, {
+    transform: numberAttributeWithFallback(this.defaultOptions.gutterClickDeltaPx),
+  })
+  readonly direction = input(this.defaultOptions.direction)
+  readonly dir = input(this.defaultOptions.dir)
+  readonly unit = input(this.defaultOptions.unit)
   readonly gutterAriaLabel = input<string>()
-  readonly restrictMove = input(false, { transform: booleanAttribute })
-  readonly useTransition = input(false, { transform: booleanAttribute })
+  readonly restrictMove = input(this.defaultOptions.restrictMove, { transform: booleanAttribute })
+  readonly useTransition = input(this.defaultOptions.useTransition, { transform: booleanAttribute })
   readonly gutterClick = output<SplitGutterInteractionEvent>()
   readonly gutterDblClick = output<SplitGutterInteractionEvent>()
-  readonly gutterDblClickDuration = input(0)
+  readonly gutterDblClickDuration = input(this.defaultOptions.gutterDblClickDuration)
   readonly dragStart = output<SplitGutterInteractionEvent>()
   readonly dragEnd = output<SplitGutterInteractionEvent>()
   readonly transitionEnd = output<SplitAreaSize[]>()
@@ -107,6 +115,10 @@ export class NewSplitComponent {
       return size === '*' ? 0 : size
     })
     const visibleAreasCount = this.visibleAreas().length
+    // NOTE: Should have zero impact on performance due to browser caching
+    const splitBoundingRect = this.elementRef.nativeElement.getBoundingClientRect()
+    const rectSize = this.direction() === 'horizontal' ? splitBoundingRect.width : splitBoundingRect.height
+    const totalAreasPixelSize = Math.max(rectSize - (this.visibleAreas().length - 1) * this.gutterSize(), 0)
 
     let visitedVisibleAreas = 0
 
@@ -119,10 +131,14 @@ export class NewSplitComponent {
         const unit = this.unit()
 
         if (unit === 'pixel') {
-          const columnValue = areaSize === '*' ? '100fr' : `${areaSize}px`
+          const columnValue = areaSize === '*' ? '1fr' : `${areaSize}px`
           columns.push(columnValue)
         } else {
-          const columnValue = areaSize === '*' ? `${100 - sumNonWildcardSizes}fr` : `${areaSize}fr`
+          // To prevent weird browser calculations based on percent fraction we align based on parent size.
+          // The parent size has no meaning here except it transforms percent back to pixel full size thus more accurate.
+          const percentSize = areaSize === '*' ? 100 - sumNonWildcardSizes : areaSize
+          const fractionSize = (percentSize * totalAreasPixelSize) / 100
+          const columnValue = `${fractionSize}fr`
           columns.push(columnValue)
         }
 
@@ -162,6 +178,10 @@ export class NewSplitComponent {
 
   @HostBinding('class') protected get hostClassesBinding() {
     return this.hostClasses()
+  }
+
+  @HostBinding('dir') protected get hostDirBinding() {
+    return this.dir()
   }
 
   constructor() {
@@ -256,7 +276,7 @@ export class NewSplitComponent {
 
     fromEvent<TransitionEvent>(this.elementRef.nativeElement, 'transitionend')
       .pipe(
-        filter((e) => e.propertyName === 'grid-template'),
+        filter((e) => e.propertyName.startsWith('grid-template')),
         leaveNgZone(),
         takeUntilDestroyed(),
       )
@@ -385,7 +405,7 @@ export class NewSplitComponent {
     }
   }
 
-  protected getAriaAreaSizeText(area: NewSplitAreaComponent): string {
+  protected getAriaAreaSizeText(area: SplitAreaComponent): string {
     const size = area._internalSize()
 
     if (size === '*') {
@@ -415,22 +435,25 @@ export class NewSplitComponent {
     areaBeforeGutterIndex: number,
     areaAfterGutterIndex: number,
   ): DragStartContext {
+    const splitBoundingRect = this.elementRef.nativeElement.getBoundingClientRect()
+    const rectSize = this.direction() === 'horizontal' ? splitBoundingRect.width : splitBoundingRect.height
+    const totalAreasPixelSize = rectSize - (this.visibleAreas().length - 1) * this.gutterSize()
+
     const areaPixelsSize = this._areas().map((area) => {
       const boundingRect = area._elementRef.nativeElement.getBoundingClientRect()
       const size = this.direction() === 'horizontal' ? boundingRect.width : boundingRect.height
 
-      return roundWithPrecision(size, 1)
+      return size
     })
-    const allAreasSumPixels = sumNumArray(areaPixelsSize)
 
     return {
       startEvent,
       areaBeforeGutterIndex,
       areaAfterGutterIndex,
       areaPixelsSize,
+      totalAreasPixelSize,
       areaIndexToBoundaries: toRecord(this._areas(), (area, index) => {
-        // Precision of 3 prevents browser weird behavior with percent calculation and it is sensitive enough
-        const percentToRoundedPixels = (percent: number) => roundWithPrecision((percent / 100) * allAreasSumPixels, 3)
+        const percentToPixels = (percent: number) => (percent / 100) * totalAreasPixelSize
 
         const value: AreaBoundary =
           this.unit() === 'pixel'
@@ -439,8 +462,8 @@ export class NewSplitComponent {
                 max: area._normalizedMaxSize(),
               }
             : {
-                min: percentToRoundedPixels(area._normalizedMinSize()),
-                max: percentToRoundedPixels(area._normalizedMaxSize()),
+                min: percentToPixels(area._normalizedMinSize()),
+                max: percentToPixels(area._normalizedMaxSize()),
               }
 
         return [index.toString(), value]
@@ -519,9 +542,6 @@ export class NewSplitComponent {
       }
     }
 
-    // Once pixels transfer is done - we can update the areas with their new sizes
-    const allAreasSumPixels = sumNumArray(tempAreaPixelsSize)
-
     this._areas().forEach((area, index) => {
       // No need to update wildcard size
       if (area._internalSize() === '*') {
@@ -531,9 +551,9 @@ export class NewSplitComponent {
       if (this.unit() === 'pixel') {
         area._internalSize.set(tempAreaPixelsSize[index])
       } else {
-        // Precision of 3 prevents browser weird behavior with percent calculation and it is sensitive enough
-        const percentSize = roundWithPrecision((tempAreaPixelsSize[index] / allAreasSumPixels) * 100, 3)
-        area._internalSize.set(percentSize)
+        const percentSize = (tempAreaPixelsSize[index] / dragStartContext.totalAreasPixelSize) * 100
+        // Precision of 5 prevents browser weird behavior with percent calculation and it is sensitive enough
+        area._internalSize.set(roundWithPrecision(percentSize, 5))
       }
     })
 

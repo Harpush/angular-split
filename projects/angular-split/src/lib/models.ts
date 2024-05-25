@@ -11,6 +11,10 @@ export const areaSizeTransform = (areaSize: SplitAreaSizeInput): SplitAreaSize |
 export const boundaryAreaSizeTransform = (areaSize: SplitAreaSizeInput): SplitAreaSize =>
   internalAreaSizeTransform(areaSize)
 
+export type SplitDirection = 'horizontal' | 'vertical'
+
+export type SplitDir = 'ltr' | 'rtl'
+
 export type SplitUnit = 'pixel' | 'percent'
 
 export interface SplitGutterInteractionEvent {

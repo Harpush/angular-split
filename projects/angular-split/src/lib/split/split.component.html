@@ -33,7 +33,7 @@
                 gutterNum: $index + 1,
                 first: $first,
                 last: $index === _areas().length - 2,
-                isDragged: _isDragging()
+                isDragged: draggedGutterIndex() === $index
               };
               injector: injector
             "

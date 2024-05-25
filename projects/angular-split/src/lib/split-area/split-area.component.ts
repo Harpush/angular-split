@@ -10,20 +10,20 @@ import {
   inject,
   input,
 } from '@angular/core'
-import { NewSplitComponent } from '../new-split/new-split.component'
+import { SplitComponent } from '../split/split.component'
 import { createClassesString, mirrorSignal } from '../utils'
 import { SplitAreaSize, areaSizeTransform, boundaryAreaSizeTransform } from '../models'
 
 @Component({
-  selector: 'as-new-split-area',
+  selector: 'as-split-area',
   standalone: true,
   exportAs: 'asSplitArea',
-  templateUrl: './new-split-area.component.html',
-  styleUrl: './new-split-area.component.scss',
+  templateUrl: './split-area.component.html',
+  styleUrl: './split-area.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class NewSplitAreaComponent {
-  protected readonly split = inject(NewSplitComponent)
+export class SplitAreaComponent {
+  protected readonly split = inject(SplitComponent)
   readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
 
   readonly size = input('auto', { transform: areaSizeTransform })

@@ -20,17 +20,17 @@ import { AComponent } from '../../ui/components/AComponent'
     <div class="container">
       <sp-example-title [type]="exampleEnum.TOGGLE"></sp-example-title>
       <div class="split-example ex1" style="height: 150px;">
-        <as-new-split [gutterSize]="15" (dragEnd)="log('dragEnd', $event)">
-          <as-new-split-area *ngIf="action.isPresentA" [visible]="action.isVisibleA">
+        <as-split [gutterSize]="15" (dragEnd)="log('dragEnd', $event)">
+          <as-split-area *ngIf="action.isPresentA" [visible]="action.isVisibleA">
             <p>A</p>
-          </as-new-split-area>
-          <as-new-split-area *ngIf="action.isPresentB" [visible]="action.isVisibleB">
+          </as-split-area>
+          <as-split-area *ngIf="action.isPresentB" [visible]="action.isVisibleB">
             <p>B</p>
-          </as-new-split-area>
-          <as-new-split-area *ngIf="action.isPresentC" [visible]="action.isVisibleC">
+          </as-split-area>
+          <as-split-area *ngIf="action.isPresentC" [visible]="action.isVisibleC">
             <p>C</p>
-          </as-new-split-area>
-        </as-new-split>
+          </as-split-area>
+        </as-split>
       </div>
       <p>Toggle <code>[visible]="boolean"</code> properties:</p>
       <div class="btns">

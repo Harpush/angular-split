@@ -19,7 +19,7 @@ context('Simple split example page tests', () => {
 
   it('Display initial state', () => {
     checkSplitDirAndSizes('.ex-percent > as-split', 'horizontal', W, H, GUTTER, [319.5, 745.5])
-    checkSplitDirAndSizes('.ex-percent-wc > as-split', 'horizontal', W, H, GUTTER, [737.8125, 210.796875, 105.390625])
+    checkSplitDirAndSizes('.ex-percent-wc > as-split', 'horizontal', W, H, GUTTER, [737.8, 210.8, 105.4])
     checkSplitDirAndSizes('.ex-pixel > as-split', 'horizontal', W, H, GUTTER, [120, 774, 160])
     checkGutterAriaLabel('.ex-percent .as-split-gutter', 0, 'adjustable divider between two views')
     checkGutterAriaLabel('.ex-percent-wc .as-split-gutter', 0, 'adjustable divider between two views')

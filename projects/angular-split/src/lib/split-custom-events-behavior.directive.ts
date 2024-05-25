@@ -1,7 +1,22 @@
 import { Directive, ElementRef, inject, input, output } from '@angular/core'
-import { eventsEqualWithDelta, fromMouseDownEvent, fromMouseUpEvent, leaveNgZone } from './utils'
-import { delay, filter, fromEvent, map, mergeMap, of, scan, switchMap, take, tap, timeInterval } from 'rxjs'
+import { eventsEqualWithDelta, fromMouseDownEvent, fromMouseMoveEvent, fromMouseUpEvent, leaveNgZone } from './utils'
+import {
+  delay,
+  filter,
+  fromEvent,
+  map,
+  mergeMap,
+  of,
+  repeat,
+  scan,
+  switchMap,
+  take,
+  takeUntil,
+  tap,
+  timeInterval,
+} from 'rxjs'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
+import { DOCUMENT } from '@angular/common'
 
 /**
  * Emulates browser behavior of click and double click with three new features:
@@ -16,6 +31,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 })
 export class SplitCustomEventsBehaviorDirective {
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
+  private readonly document = inject(DOCUMENT)
 
   readonly multiClickThreshold = input.required<number>({ alias: 'asSplitCustomMultiClickThreshold' })
   readonly deltaInPx = input.required<number>({ alias: 'asSplitCustomClickDeltaInPx' })
@@ -29,20 +45,28 @@ export class SplitCustomEventsBehaviorDirective {
       .pipe(leaveNgZone(), takeUntilDestroyed())
       .subscribe((e) => this.keyDown.emit(e))
 
+    // We just need to know when drag start to cancel all click related interactions
+    const dragStarted$ = fromMouseDownEvent(this.elementRef.nativeElement).pipe(
+      switchMap((mouseDownEvent) =>
+        fromMouseMoveEvent(this.document).pipe(
+          filter((e) => !eventsEqualWithDelta(mouseDownEvent, e, this.deltaInPx())),
+          take(1),
+          map(() => true),
+          takeUntil(fromMouseUpEvent(this.document)),
+        ),
+      ),
+    )
+
     fromMouseDownEvent(this.elementRef.nativeElement)
       .pipe(
         tap((e) => this.mouseDown.emit(e)),
         // Gather mousedown events intervals to identify whether it is a single double or more click
         timeInterval(),
         // We only count a click as part of a multi click if the multiClickThreshold wasn't reached
-        scan(
-          ([, sum], { interval, value }) =>
-            interval >= this.multiClickThreshold() ? ([value, 1] as const) : ([value, sum + 1] as const),
-          [undefined, 0],
-        ),
+        scan((sum, { interval }) => (interval >= this.multiClickThreshold() ? 1 : sum + 1), 0),
         // As mouseup always comes after mousedown if the delayed mouseup has yet to come
         // but a new mousedown arrived we can discard the older mouseup as we are part of a multi click
-        switchMap(([mouseDownEvent, numOfConsecutiveClicks]) =>
+        switchMap((numOfConsecutiveClicks) =>
           // In case of a double click we directly emit as we don't care about more than two consecutive clicks
           // so we don't have to wait compared to a single click that might be followed by another for a double.
           // In case of a mouse up that was too long after the mouse down
@@ -50,7 +74,6 @@ export class SplitCustomEventsBehaviorDirective {
           fromMouseUpEvent(this.elementRef.nativeElement).pipe(
             timeInterval(),
             take(1),
-            filter(({ value }) => eventsEqualWithDelta(mouseDownEvent, value, this.deltaInPx())),
             numOfConsecutiveClicks === 2
               ? map(() => numOfConsecutiveClicks)
               : mergeMap(({ interval }) =>
@@ -60,6 +83,9 @@ export class SplitCustomEventsBehaviorDirective {
                 ),
           ),
         ),
+        // Discard everything once drag started and listen again (repeat) to mouse down
+        takeUntil(dragStarted$),
+        repeat(),
         leaveNgZone(),
         takeUntilDestroyed(),
       )

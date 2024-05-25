@@ -1,8 +1,8 @@
 import { SplitUnit } from './models'
-import { NewSplitAreaComponent } from './new-split-area/new-split-area.component'
+import { SplitAreaComponent } from './split-area/split-area.component'
 import { sum } from './utils'
 
-export function validateAreas(areas: readonly NewSplitAreaComponent[], unit: SplitUnit) {
+export function validateAreas(areas: readonly SplitAreaComponent[], unit: SplitUnit) {
   if (areas.length === 0) {
     return
   }
