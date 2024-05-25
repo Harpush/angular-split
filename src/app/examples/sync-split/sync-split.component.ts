@@ -61,7 +61,6 @@ export class SyncSplitComponent extends AComponent implements AfterViewInit, OnD
   sub: Subscription
 
   ngAfterViewInit() {
-    // TODO: Change detection?
     this.sub = merge(
       this.mySplitAEl.dragProgress$,
       this.mySplitBEl.dragProgress$,

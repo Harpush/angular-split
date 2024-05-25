@@ -35,7 +35,7 @@ import {
 import { DOCUMENT, NgStyle, NgTemplateOutlet } from '@angular/common'
 import { SplitGutterInteractionEvent, SplitAreaSize } from '../models'
 import { SplitCustomEventsBehaviorDirective } from '../split-custom-events-behavior.directive'
-import { validateAreas } from '../validations'
+import { areaAreasValid } from '../validations'
 import { SplitGutterDirective } from '../gutter/split-gutter.directive'
 import { SplitGutterDynamicInjectorDirective } from '../gutter/split-gutter-dynamic-injector.directive'
 import { ANGULAR_SPLIT_DEFAULT_OPTIONS } from '../angular-split-config.token'
@@ -185,28 +185,39 @@ export class SplitComponent {
   }
 
   constructor() {
-    // Responsible for auto areas sizes distribution and areas sizes validations
     effect(
       () => {
         const visibleAreas = this.visibleAreas()
         const unit = this.unit()
-        const shouldDistributeSizeEvenly = visibleAreas.every((area) => area.size() === 'auto')
+        const isInAutoMode = visibleAreas.every((area) => area.size() === 'auto')
 
         untracked(() => {
-          if (shouldDistributeSizeEvenly) {
-            if (unit === 'pixel') {
-              throw new Error('as-split: All areas without size can only be in percent mode')
-            }
-
+          // Special mode when no size input was declared which is a valid mode
+          if (unit === 'percent' && visibleAreas.length > 1 && isInAutoMode) {
             visibleAreas.forEach((area) => area._internalSize.set(100 / visibleAreas.length))
-          } else {
-            // Visibility changed - reset back to sizes as we can't know if sizes will be valid
-            // Unit changed - the whole calculation is different so reset to the input size
-            // Area size changed - we need to reset all areas sizes as the change might break with current internal sizes
-            visibleAreas.forEach((area) => area._internalSize.reset())
+            return
           }
 
-          validateAreas(visibleAreas, unit)
+          visibleAreas.forEach((area) => area._internalSize.reset())
+
+          const isValid = areaAreasValid(visibleAreas, unit)
+
+          if (isValid) {
+            return
+          }
+
+          if (unit === 'percent') {
+            const defaultSize = 100 / visibleAreas.length
+            visibleAreas.forEach((area) => area._internalSize.set(defaultSize))
+          } else if (unit === 'pixel') {
+            const wildcardAreas = visibleAreas.filter((area) => area._internalSize() === '*')
+
+            if (wildcardAreas.length === 0) {
+              visibleAreas[0]._internalSize.set('*')
+            } else if (wildcardAreas.length > 1) {
+              wildcardAreas.filter((_, i) => i !== 0).forEach((area) => area._internalSize.set(100))
+            }
+          }
         })
       },
       { allowSignalWrites: true },

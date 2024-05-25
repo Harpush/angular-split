@@ -19,11 +19,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop'
 import { DOCUMENT } from '@angular/common'
 
 /**
- * Emulates browser behavior of click and double click with three new features:
+ * Emits mousedown, click, double click and keydown out of zone
+ *
+ * Emulates browser behavior of click and double click with new features:
  * 1. Supports touch events (tap and double tap)
  * 2. Ignores the first click in a double click with the side effect of a bit slower emission of fast click event
  * 3. Allow customizing the delay after mouse down to count another mouse down as a double click
- * 4. All outputs run outside zone for better CD handling
  */
 @Directive({
   selector: '[asSplitCustomEventsBehavior]',

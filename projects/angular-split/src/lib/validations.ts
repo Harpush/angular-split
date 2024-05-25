@@ -1,30 +1,60 @@
+import { isDevMode } from '@angular/core'
 import { SplitUnit } from './models'
 import { SplitAreaComponent } from './split-area/split-area.component'
 import { sum } from './utils'
 
-export function validateAreas(areas: readonly SplitAreaComponent[], unit: SplitUnit) {
+export function areaAreasValid(areas: readonly SplitAreaComponent[], unit: SplitUnit): boolean {
   if (areas.length === 0) {
-    return
+    return true
   }
 
   const wildcardAreas = areas.filter((area) => area._internalSize() === '*')
 
   if (wildcardAreas.length > 1) {
-    throw new Error('as-split: Maximum one * area is allowed')
+    if (isDevMode()) {
+      console.warn('as-split: Maximum one * area is allowed')
+    }
+
+    return false
   }
 
-  if (wildcardAreas.length === 1) {
-    return
+  if (unit === 'pixel') {
+    if (wildcardAreas.length === 1) {
+      return true
+    }
+
+    if (isDevMode()) {
+      console.warn('as-split: Pixel mode must have one * area')
+    }
+
+    return false
   }
 
-  if (unit !== 'percent') {
-    throw new Error('as-split: Pixel mode must have one * area')
-  }
-
-  const sumPercent = sum(areas, (area) => area._internalSize() as number)
+  const sumPercent = sum(areas, (area) => {
+    const size = area._internalSize()
+    return size === '*' ? 0 : size
+  })
 
   // As percent calculation isn't perfect we allow for a small margin of error
-  if (sumPercent < 99.9 || sumPercent > 100.1) {
-    throw new Error('as-split: Percent areas must total 100%')
+  if (wildcardAreas.length === 1) {
+    if (sumPercent <= 100.1) {
+      return true
+    }
+
+    if (isDevMode()) {
+      console.warn(`as-split: Percent areas must total 100%`)
+    }
+
+    return false
   }
+
+  if (sumPercent < 99.9 || sumPercent > 100.1) {
+    if (isDevMode()) {
+      console.warn('as-split: Percent areas must total 100%')
+    }
+
+    return false
+  }
+
+  return true
 }

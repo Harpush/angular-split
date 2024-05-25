@@ -6,9 +6,9 @@ import {
   Signal,
   booleanAttribute,
   computed,
-  effect,
   inject,
   input,
+  isDevMode,
 } from '@angular/core'
 import { SplitComponent } from '../split/split.component'
 import { createClassesString, mirrorSignal } from '../utils'
@@ -45,8 +45,8 @@ export class SplitAreaComponent {
       return size === 'auto' ? '*' : size
     }),
   )
-  readonly _normalizedMinSize = computed(() => this.normalizeSizeBoundary(this.minSize, 0))
-  readonly _normalizedMaxSize = computed(() => this.normalizeSizeBoundary(this.maxSize, Infinity))
+  readonly _normalizedMinSize = computed(() => this.normalizeMinSize())
+  readonly _normalizedMaxSize = computed(() => this.normalizeMaxSize())
   private readonly index = computed(() => this.split._areas().findIndex((area) => area === this))
   private readonly gridAreaNum = computed(() => this.index() * 2 + 1)
   private readonly hostClasses = computed(() =>
@@ -71,79 +71,71 @@ export class SplitAreaComponent {
     return this.split._isDragging() ? 'relative' : undefined
   }
 
-  constructor() {
-    effect(() => {
-      const size = this._internalSize()
-      const maxSize = this.maxSize()
-      const unit = this.split.unit()
-      const visible = this.visible()
+  private normalizeMinSize() {
+    const defaultMinSize = 0
+    const minSize = this.normalizeSizeBoundary(this.minSize, defaultMinSize)
+    const size = this._internalSize()
 
-      if (!visible) {
-        return
+    if (size !== '*' && size < minSize) {
+      if (isDevMode()) {
+        console.warn('as-split: size cannot be smaller than minSize')
       }
 
-      if (unit === 'pixel' && size === '*' && maxSize !== '*') {
-        throw new Error('as-split: maxSize not allowed on * in pixel mode')
+      return defaultMinSize
+    }
+
+    return minSize
+  }
+
+  private normalizeMaxSize() {
+    const defaultMaxSize = Infinity
+    const maxSize = this.normalizeSizeBoundary(this.maxSize, defaultMaxSize)
+    const size = this._internalSize()
+
+    if (size !== '*' && size > maxSize) {
+      if (isDevMode()) {
+        console.warn('as-split: size cannot be larger than maxSize')
       }
 
-      if (size === '*' || maxSize === '*') {
-        return
-      }
+      return defaultMaxSize
+    }
 
-      if (size > maxSize) {
-        throw new Error('as-split: size cannot be larger than maxSize')
-      }
-    })
-
-    effect(() => {
-      const size = this._internalSize()
-      const minSize = this.minSize()
-      const unit = this.split.unit()
-      const visible = this.visible()
-
-      if (!visible) {
-        return
-      }
-
-      if (unit === 'pixel' && size === '*' && minSize !== '*') {
-        throw new Error('as-split: minSize not allowed on * in pixel mode')
-      }
-
-      if (size === '*' || minSize === '*') {
-        return
-      }
-
-      if (size < minSize) {
-        throw new Error('as-split: size cannot be smaller than minSize')
-      }
-    })
-
-    effect(() => {
-      const size = this._internalSize()
-      const lockSize = this.lockSize()
-      const visible = this.visible()
-
-      if (!visible) {
-        return
-      }
-
-      if (lockSize && size === '*') {
-        throw new Error(`as-split: lockSize isn't supported on area with * size or without size`)
-      }
-    })
+    return maxSize
   }
 
   private normalizeSizeBoundary(sizeBoundarySignal: Signal<SplitAreaSize>, defaultNum: number): number {
-    if (this.lockSize()) {
-      const size = this.size()
+    const size = this._internalSize()
+    const lockSize = this.lockSize()
+    const boundarySize = sizeBoundarySignal()
 
-      // Should never happen and guarded by an effect. But in case after the error someone starts dragging
-      // it might get to an endless loop unless we handle it here.
-      return size === '*' || size === 'auto' ? defaultNum : size
+    if (lockSize) {
+      if (isDevMode() && boundarySize !== '*') {
+        console.warn('as-split: lockSize overwrites maxSize/minSize')
+      }
+
+      if (size === '*') {
+        if (isDevMode()) {
+          console.warn(`as-split: lockSize isn't supported on area with * size or without size`)
+        }
+
+        return defaultNum
+      }
+
+      return size
     }
 
-    const sizeBoundary = sizeBoundarySignal()
+    if (boundarySize === '*') {
+      return defaultNum
+    }
 
-    return sizeBoundary === '*' ? defaultNum : sizeBoundary
+    if (size === '*') {
+      if (isDevMode()) {
+        console.warn('as-split: maxSize/minSize not allowed on *')
+      }
+
+      return defaultNum
+    }
+
+    return boundarySize
   }
 }
