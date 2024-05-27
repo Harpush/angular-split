@@ -24,6 +24,9 @@ import { SplitAreaSize, areaSizeTransform, boundaryAreaSizeTransform } from '../
 })
 export class SplitAreaComponent {
   protected readonly split = inject(SplitComponent)
+  /**
+   * @internal
+   */
   readonly _elementRef = inject<ElementRef<HTMLElement>>(ElementRef)
 
   readonly size = input('auto', { transform: areaSizeTransform })
@@ -32,10 +35,13 @@ export class SplitAreaComponent {
   readonly lockSize = input(false, { transform: booleanAttribute })
   readonly visible = input(true, { transform: booleanAttribute })
 
-  // As size is an input and we can change the size without the outside
-  // listening to the change we need an intermediate writeable signal
+  /**
+   * @internal
+   */
   readonly _internalSize = mirrorSignal(
     computed((): SplitAreaSize => {
+      // As size is an input and we can change the size without the outside
+      // listening to the change we need an intermediate writeable signal
       if (!this.visible()) {
         return 0
       }
@@ -45,7 +51,13 @@ export class SplitAreaComponent {
       return size === 'auto' ? '*' : size
     }),
   )
+  /**
+   * @internal
+   */
   readonly _normalizedMinSize = computed(() => this.normalizeMinSize())
+  /**
+   * @internal
+   */
   readonly _normalizedMaxSize = computed(() => this.normalizeMaxSize())
   private readonly index = computed(() => this.split._areas().findIndex((area) => area === this))
   private readonly gridAreaNum = computed(() => this.index() * 2 + 1)

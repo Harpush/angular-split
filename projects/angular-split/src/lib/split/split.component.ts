@@ -79,6 +79,9 @@ export class SplitComponent {
   private readonly gutterMouseDown$ = new Subject<MouseDownContext>()
   private readonly dragProgressSubject = new Subject<SplitGutterInteractionEvent>()
 
+  /**
+   * @internal
+   */
   readonly _areas = contentChildren(SplitAreaComponent)
   protected readonly customGutter = contentChild(SplitGutterDirective)
   readonly gutterSize = input(this.defaultOptions.gutterSize, {
@@ -166,6 +169,9 @@ export class SplitComponent {
     }),
   )
   protected readonly draggedGutterIndex = signal<number>(undefined)
+  /**
+   * @internal
+   */
   readonly _isDragging = computed(() => this.draggedGutterIndex() !== undefined)
 
   @HostBinding('class') protected get hostClassesBinding() {
@@ -218,8 +224,8 @@ export class SplitComponent {
     )
 
     // Responsible for updating grid template style. Must be this way and not based on HostBinding
-    // as change detection fo host binding is bound to the parent component and this style
-    // is updated on every muse move. Doing it this way will prevent change detection cycles in parent.
+    // as change detection for host binding is bound to the parent component and this style
+    // is updated on every mouse move. Doing it this way will prevent change detection cycles in parent.
     effect(() => {
       const gridTemplateColumnsStyle = this.gridTemplateColumnsStyle()
       this.renderer.setStyle(this.elementRef.nativeElement, 'grid-template', gridTemplateColumnsStyle)
