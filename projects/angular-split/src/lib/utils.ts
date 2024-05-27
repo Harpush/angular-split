@@ -54,10 +54,6 @@ export function eventsEqualWithDelta(
   return Math.abs(endPoint.x - startPoint.x) <= deltaInPx && Math.abs(endPoint.y - startPoint.y) <= deltaInPx
 }
 
-export function roundWithPrecision(num: number, precision: number) {
-  return Math.round(num * 10 ** precision) / 10 ** precision
-}
-
 export function fromMouseDownEvent(target: HTMLElement | Document) {
   return merge(
     fromEvent<MouseEvent>(target, 'mousedown').pipe(filter((e) => e.button === 0)),

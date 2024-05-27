@@ -30,7 +30,7 @@ export class SplitAreaComponent {
   readonly minSize = input('*', { transform: boundaryAreaSizeTransform })
   readonly maxSize = input('*', { transform: boundaryAreaSizeTransform })
   readonly lockSize = input(false, { transform: booleanAttribute })
-  readonly visible = input(true)
+  readonly visible = input(true, { transform: booleanAttribute })
 
   // As size is an input and we can change the size without the outside
   // listening to the change we need an intermediate writeable signal
@@ -41,7 +41,7 @@ export class SplitAreaComponent {
       }
 
       const size = this.size()
-      // auto will get fixed by the effect in split component
+      // auto acts the same as * in all calculations
       return size === 'auto' ? '*' : size
     }),
   )

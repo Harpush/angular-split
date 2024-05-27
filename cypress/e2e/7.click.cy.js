@@ -35,32 +35,32 @@ context('Gutter click example page tests', () => {
 
   it('Click gutters to switch area sizes between 0 and X', () => {
     cy.get('.as-split-gutter').eq(0).click()
-    cy.wait(1500)
+    cy.wait(2000)
     checkSplitDirAndSizes('.split-example > as-split', 'horizontal', W, H, GUTTER, [0, 792, 264])
     cy.wait(10)
 
     cy.get('.as-split-gutter').eq(0).click()
-    cy.wait(1500)
+    cy.wait(2000)
     checkSplitDirAndSizes('.split-example > as-split', 'horizontal', W, H, GUTTER, [264, 528, 264])
     cy.wait(10)
 
     cy.get('.as-split-gutter').eq(0).click()
-    cy.wait(1500)
+    cy.wait(2000)
     checkSplitDirAndSizes('.split-example > as-split', 'horizontal', W, H, GUTTER, [0, 792, 264])
     cy.wait(10)
 
     cy.get('.as-split-gutter').eq(1).click()
-    cy.wait(1500)
+    cy.wait(2000)
     checkSplitDirAndSizes('.split-example > as-split', 'horizontal', W, H, GUTTER, [0, 1056, 0])
     cy.wait(10)
 
     cy.get('.as-split-gutter').eq(0).click()
-    cy.wait(1500)
+    cy.wait(2000)
     checkSplitDirAndSizes('.split-example > as-split', 'horizontal', W, H, GUTTER, [264, 792, 0])
     cy.wait(10)
 
     cy.get('.as-split-gutter').eq(1).click()
-    cy.wait(1500)
+    cy.wait(2000)
     checkSplitDirAndSizes('.split-example > as-split', 'horizontal', W, H, GUTTER, [264, 528, 264])
     cy.wait(10)
 

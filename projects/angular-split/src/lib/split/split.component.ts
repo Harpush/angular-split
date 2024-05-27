@@ -28,7 +28,6 @@ import {
   getPointFromEvent,
   leaveNgZone,
   numberAttributeWithFallback,
-  roundWithPrecision,
   sum,
   toRecord,
 } from '../utils'
@@ -115,10 +114,6 @@ export class SplitComponent {
       return size === '*' ? 0 : size
     })
     const visibleAreasCount = this.visibleAreas().length
-    // NOTE: Should have zero impact on performance due to browser caching
-    const splitBoundingRect = this.elementRef.nativeElement.getBoundingClientRect()
-    const rectSize = this.direction() === 'horizontal' ? splitBoundingRect.width : splitBoundingRect.height
-    const totalAreasPixelSize = Math.max(rectSize - (this.visibleAreas().length - 1) * this.gutterSize(), 0)
 
     let visitedVisibleAreas = 0
 
@@ -134,11 +129,8 @@ export class SplitComponent {
           const columnValue = areaSize === '*' ? '1fr' : `${areaSize}px`
           columns.push(columnValue)
         } else {
-          // To prevent weird browser calculations based on percent fraction we align based on parent size.
-          // The parent size has no meaning here except it transforms percent back to pixel full size thus more accurate.
           const percentSize = areaSize === '*' ? 100 - sumNonWildcardSizes : areaSize
-          const fractionSize = (percentSize * totalAreasPixelSize) / 100
-          const columnValue = `${fractionSize}fr`
+          const columnValue = `${percentSize}fr`
           columns.push(columnValue)
         }
 
@@ -207,11 +199,13 @@ export class SplitComponent {
           }
 
           if (unit === 'percent') {
+            // Distribute sizes equally
             const defaultSize = 100 / visibleAreas.length
             visibleAreas.forEach((area) => area._internalSize.set(defaultSize))
           } else if (unit === 'pixel') {
             const wildcardAreas = visibleAreas.filter((area) => area._internalSize() === '*')
 
+            // Make sure only one wildcard area
             if (wildcardAreas.length === 0) {
               visibleAreas[0]._internalSize.set('*')
             } else if (wildcardAreas.length > 1) {
@@ -447,15 +441,27 @@ export class SplitComponent {
     areaAfterGutterIndex: number,
   ): DragStartContext {
     const splitBoundingRect = this.elementRef.nativeElement.getBoundingClientRect()
-    const rectSize = this.direction() === 'horizontal' ? splitBoundingRect.width : splitBoundingRect.height
-    const totalAreasPixelSize = rectSize - (this.visibleAreas().length - 1) * this.gutterSize()
+    const splitSize = this.direction() === 'horizontal' ? splitBoundingRect.width : splitBoundingRect.height
+    const totalAreasPixelSize = splitSize - (this.visibleAreas().length - 1) * this.gutterSize()
+    // Use the internal size and split size to calculate the pixel size from wildcard and percent areas
+    const areaPixelSizesWithWildcard = this._areas().map((area) => {
+      if (this.unit() === 'pixel') {
+        return area._internalSize()
+      } else {
+        const size = area._internalSize()
 
-    const areaPixelsSize = this._areas().map((area) => {
-      const boundingRect = area._elementRef.nativeElement.getBoundingClientRect()
-      const size = this.direction() === 'horizontal' ? boundingRect.width : boundingRect.height
+        if (size === '*') {
+          return size
+        }
 
-      return size
+        return (size / 100) * totalAreasPixelSize
+      }
     })
+    const remainingSize = Math.max(
+      0,
+      totalAreasPixelSize - sum(areaPixelSizesWithWildcard, (size) => (size === '*' ? 0 : size)),
+    )
+    const areaPixelsSize = areaPixelSizesWithWildcard.map((size) => (size === '*' ? remainingSize : size))
 
     return {
       startEvent,
@@ -501,8 +507,9 @@ export class SplitComponent {
     // Copy as we don't want to edit the original array
     const tempAreaPixelsSize = [...dragStartContext.areaPixelsSize]
     // As we are going to shuffle the areas order for easier iterations we should work with area indices array
-    // instead of actual area sizes array
-    const areasIndices = tempAreaPixelsSize.map((_, index) => index)
+    // instead of actual area sizes array.
+    // We must also remove the invisible ones as we can't expand or shrink them.
+    const areasIndices = tempAreaPixelsSize.map((_, index) => index).filter((index) => this._areas()[index].visible())
     // The two variables below are ordered for iterations with real area indices inside.
     const areasIndicesBeforeGutter = this.restrictMove()
       ? [dragStartContext.areaBeforeGutterIndex]
@@ -532,7 +539,7 @@ export class SplitComponent {
       const areaToShrinkMinSize = dragStartContext.areaIndexToBoundaries[areaIndexToShrink].min
       const areaToExpandMaxSize = dragStartContext.areaIndexToBoundaries[areaIndexToExpand].max
       // We can only transfer pixels based on the shrinking area min size and the expanding area max size
-      // to avoid overflow. If any pixels left they will be handled by the next area in teh next while iteration
+      // to avoid overflow. If any pixels left they will be handled by the next area in the next while iteration
       const maxPixelsToShrink = areaToShrinkSize - areaToShrinkMinSize
       const maxPixelsToExpand = areaToExpandMaxSize - areaToExpandSize
       const pixelsToTransfer = Math.min(maxPixelsToShrink, maxPixelsToExpand, remainingPixels)
@@ -563,8 +570,8 @@ export class SplitComponent {
         area._internalSize.set(tempAreaPixelsSize[index])
       } else {
         const percentSize = (tempAreaPixelsSize[index] / dragStartContext.totalAreasPixelSize) * 100
-        // Precision of 5 prevents browser weird behavior with percent calculation and it is sensitive enough
-        area._internalSize.set(roundWithPrecision(percentSize, 5))
+        // Fix javascript only working with float numbers which are inaccurate compared to decimals
+        area._internalSize.set(parseFloat(percentSize.toFixed(10)))
       }
     })
 
