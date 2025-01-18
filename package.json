@@ -55,6 +55,7 @@
     "@commitlint/cli": "^18.5.0",
     "@commitlint/config-angular": "^18.5.0",
     "@commitlint/config-conventional": "^18.5.0",
+    "@playwright/test": "^1.52.0",
     "@release-it/bumper": "^6.0.1",
     "@release-it/conventional-changelog": "^9.0.3",
     "@types/marked": "^5.0.1",
