@@ -1,8 +1,7 @@
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http'
-import { importProvidersFrom } from '@angular/core'
+import { importProvidersFrom, provideZoneChangeDetection } from '@angular/core'
 import { FormsModule } from '@angular/forms'
 import { bootstrapApplication, BrowserModule } from '@angular/platform-browser'
-import { provideAnimations } from '@angular/platform-browser/animations'
 import { provideRouter, Routes } from '@angular/router'
 import { AppComponent } from './app/app.component'
 
@@ -24,8 +23,8 @@ const routes: Routes = [
 
 bootstrapApplication(AppComponent, {
   providers: [
+    provideZoneChangeDetection(),
     importProvidersFrom(BrowserModule, FormsModule),
-    provideAnimations(),
     provideRouter(routes),
     provideHttpClient(withInterceptorsFromDi()),
   ],

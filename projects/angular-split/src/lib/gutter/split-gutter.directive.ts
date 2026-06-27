@@ -9,7 +9,7 @@ export type SplitGutterTemplateContext = SplitGutterContext
 export class SplitGutterDirective {
   readonly template = inject<TemplateRef<SplitGutterTemplateContext>>(TemplateRef)
 
-  static ngTemplateContextGuard(_dir: SplitGutterDirective, ctx: unknown): ctx is SplitGutterTemplateContext {
+  static ngTemplateContextGuard(_dir: SplitGutterDirective, _ctx: unknown): _ctx is SplitGutterTemplateContext {
     return true
   }
 }
